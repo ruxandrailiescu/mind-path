@@ -16,3 +16,4 @@ MindPath implements the Model-View-Controller (MVC) software design pattern.
     - Spring Validation: data validation
     - PostgreSQL Driver/H2 Database: database connectivity
     - Docker Compose: containerization
+    - Lombok: reduce boilerplate code
