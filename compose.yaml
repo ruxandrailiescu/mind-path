@@ -1,0 +1,9 @@
+services:
+  postgres:
+    image: 'postgres:latest'
+    environment:
+      - 'POSTGRES_DB=mindpath'
+      - 'POSTGRES_PASSWORD=secret'
+      - 'POSTGRES_USER=rux'
+    ports:
+      - '5432:5432'
