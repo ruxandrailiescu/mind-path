@@ -17,3 +17,8 @@ MindPath implements the Model-View-Controller (MVC) software design pattern.
     - PostgreSQL Driver/H2 Database: database connectivity
     - Docker Compose: containerization
     - Lombok: reduce boilerplate code
+
+## Authentication Flow
+- Only users with ADMIN role can create teachers (/teachers).
+- Any user can register as a STUDENT on the platform (/auth/register).
+- Any user can log in (/auth/login).

@@ -1,16 +1,18 @@
 package ro.ase.acs.mind_path.entity;
 
 import jakarta.persistence.*;
-import lombok.Getter;
-import lombok.Setter;
+import lombok.*;
+import org.hibernate.annotations.CreationTimestamp;
 import ro.ase.acs.mind_path.entity.enums.QuizStatus;
 
 import java.time.LocalDateTime;
 import java.util.List;
 
+@Data
 @Entity
-@Getter
-@Setter
+@Builder
+@NoArgsConstructor
+@AllArgsConstructor
 @Table(name = "Quizzes")
 public class Quiz {
     @Id
@@ -26,7 +28,10 @@ public class Quiz {
     @Column(nullable = false)
     private QuizStatus status;
     @Column(nullable = false, name = "created_at", updatable = false, columnDefinition = "TIMESTAMP DEFAULT CURRENT_TIMESTAMP")
+    @CreationTimestamp
     private LocalDateTime createdAt;
     @OneToMany(mappedBy = "quiz", cascade = CascadeType.ALL, orphanRemoval = true)
+    @ToString.Exclude
+    @EqualsAndHashCode.Exclude
     private List<Question> questions;
 }
