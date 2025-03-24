@@ -5,3 +5,4 @@
 - Unit tests for authentication flow
 
 ## Issues
+- jwt secret in git repo
