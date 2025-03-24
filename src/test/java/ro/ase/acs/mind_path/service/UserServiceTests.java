@@ -11,10 +11,14 @@ import org.springframework.security.authentication.UsernamePasswordAuthenticatio
 import org.springframework.security.crypto.password.PasswordEncoder;
 import ro.ase.acs.mind_path.config.JwtService;
 import ro.ase.acs.mind_path.dto.request.PasswordChangeDto;
+import ro.ase.acs.mind_path.dto.request.StudentCreationDto;
+import ro.ase.acs.mind_path.dto.request.TeacherCreationDto;
 import ro.ase.acs.mind_path.dto.request.UserSessionDto;
 import ro.ase.acs.mind_path.dto.response.AuthenticationDto;
 import ro.ase.acs.mind_path.entity.User;
+import ro.ase.acs.mind_path.entity.enums.UserRole;
 import ro.ase.acs.mind_path.exception.BadRequestException;
+import ro.ase.acs.mind_path.exception.UserAlreadyExistsException;
 import ro.ase.acs.mind_path.exception.UserNotFoundException;
 import ro.ase.acs.mind_path.repository.UserRepository;
 
@@ -137,5 +141,73 @@ public class UserServiceTests {
         assertEquals("encodedNewPass", user.getPassword(), "The password should be updated");
         verify(passwordEncoder).encode("newPassword");
         verify(userRepository).save(user);
+    }
+
+    @Test
+    void UserService_CreateStudent_ThrowExceptionWhenStudentExists() {
+        StudentCreationDto studentCreationDto = new StudentCreationDto();
+
+        when(userRepository.findByEmail(any())).thenReturn(Optional.of(new User()));
+
+        assertThrows(UserAlreadyExistsException.class, () -> userService.createStudent(studentCreationDto));
+    }
+
+    @Test
+    void UserService_CreateTeacher_ThrowExceptionWhenTeacherExists() {
+        TeacherCreationDto teacherCreationDto = new TeacherCreationDto();
+
+        when(userRepository.findByEmail(any())).thenReturn(Optional.of(new User()));
+
+        assertThrows(UserAlreadyExistsException.class, () -> userService.createTeacher(teacherCreationDto));
+    }
+
+    @Test
+    void UserService_CreateStudent_SuccessfullyCreatesStudent() {
+        StudentCreationDto dto = new StudentCreationDto(
+                "student@example.com",
+                "password123",
+                "STUDENT",
+                "Alice",
+                "Smith"
+        );
+
+        when(userRepository.findByEmail("student@example.com")).thenReturn(Optional.empty());
+        when(passwordEncoder.encode("password123")).thenReturn("encodedPassword");
+
+        String result = userService.createStudent(dto);
+
+        assertEquals("STUDENT saved in the database", result);
+        verify(userRepository).save(argThat(user ->
+                user.getEmail().equals("student@example.com") &&
+                        user.getFirstName().equals("Alice") &&
+                        user.getLastName().equals("Smith") &&
+                        user.getPassword().equals("encodedPassword") &&
+                        user.getRole() == UserRole.STUDENT
+        ));
+    }
+
+    @Test
+    void UserService_CreateTeacher_SuccessfullyCreatesTeacher() {
+        TeacherCreationDto dto = new TeacherCreationDto(
+                "teacher@example.com",
+                "securePass",
+                "TEACHER",
+                "John",
+                "Doe"
+        );
+
+        when(userRepository.findByEmail("teacher@example.com")).thenReturn(Optional.empty());
+        when(passwordEncoder.encode("securePass")).thenReturn("encodedSecurePass");
+
+        String result = userService.createTeacher(dto);
+
+        assertEquals("TEACHER saved in the database", result);
+        verify(userRepository).save(argThat(user ->
+                user.getEmail().equals("teacher@example.com") &&
+                        user.getFirstName().equals("John") &&
+                        user.getLastName().equals("Doe") &&
+                        user.getPassword().equals("encodedSecurePass") &&
+                        user.getRole() == UserRole.TEACHER
+        ));
     }
 }
