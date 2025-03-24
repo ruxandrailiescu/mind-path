@@ -9,7 +9,6 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 import ro.ase.acs.mind_path.dto.request.TeacherCreationDto;
-import ro.ase.acs.mind_path.dto.response.AuthenticationDto;
 import ro.ase.acs.mind_path.service.UserService;
 
 @RestController
@@ -21,7 +20,7 @@ public class TeacherController {
 
     @PostMapping
     @PreAuthorize("hasRole('ADMIN')")
-    public ResponseEntity<AuthenticationDto> create(@RequestBody @Valid TeacherCreationDto teacher) {
+    public ResponseEntity<String> create(@RequestBody @Valid TeacherCreationDto teacher) {
         return ResponseEntity.ok(userService.createTeacher(teacher));
     }
 }

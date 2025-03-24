@@ -25,15 +25,15 @@ public class UserService {
     private final JwtService jwtService;
     private final AuthenticationManager authenticationManager;
 
-    public AuthenticationDto createStudent(StudentCreationDto student) {
-        return getAuthenticationDto(student.getEmail(), student.getFirstName(), student.getLastName(), student.getPassword(), student.getUserType());
+    public String createStudent(StudentCreationDto student) {
+        return createUser(student.getEmail(), student.getFirstName(), student.getLastName(), student.getPassword(), student.getUserType());
     }
 
-    public AuthenticationDto createTeacher(TeacherCreationDto teacher) {
-        return getAuthenticationDto(teacher.getEmail(), teacher.getFirstName(), teacher.getLastName(), teacher.getPassword(), teacher.getUserType());
+    public String createTeacher(TeacherCreationDto teacher) {
+        return createUser(teacher.getEmail(), teacher.getFirstName(), teacher.getLastName(), teacher.getPassword(), teacher.getUserType());
     }
 
-    private AuthenticationDto getAuthenticationDto(String email, String firstName, String lastName, String password, String userType) {
+    private String createUser(String email, String firstName, String lastName, String password, String userType) {
         userRepository.findByEmail(email)
                 .ifPresent(t -> {
                     throw new UserAlreadyExistsException();
@@ -49,10 +49,7 @@ public class UserService {
 
         userRepository.save(user);
 
-        var jwtToken = jwtService.generateToken(user);
-        return AuthenticationDto.builder()
-                .token(jwtToken)
-                .build();
+        return (userType + " saved in the database");
     }
 
     public AuthenticationDto createSession(UserSessionDto userSessionDto) {
