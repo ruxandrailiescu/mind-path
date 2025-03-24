@@ -7,6 +7,7 @@ MindPath implements the Model-View-Controller (MVC) software design pattern.
 - Java 21 and Spring Boot 3 application
 - Java build tools: Maven
 - Database: PostgreSQL (optional: H2 for development and testing)
+- JUnit and Mockito for testing
 
   ### Dependencies
     - Spring Web: REST APIs
@@ -22,3 +23,4 @@ MindPath implements the Model-View-Controller (MVC) software design pattern.
 - Only users with ADMIN role can create teachers (/teachers).
 - Any user can register as a STUDENT on the platform (/auth/register).
 - Any user can log in (/auth/login).
+- Users with STUDENT or TEACHER roles can change their password (/auth/change-password).

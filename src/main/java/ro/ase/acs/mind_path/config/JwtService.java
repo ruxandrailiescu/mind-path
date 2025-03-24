@@ -5,8 +5,10 @@ import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.io.Decoders;
 import io.jsonwebtoken.security.Keys;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.stereotype.Service;
+import ro.ase.acs.mind_path.entity.User;
 
 import javax.crypto.SecretKey;
 import java.time.ZonedDateTime;
@@ -14,6 +16,7 @@ import java.util.Date;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.function.Function;
+import java.util.stream.Collectors;
 
 @Service
 public class JwtService {
@@ -41,9 +44,18 @@ public class JwtService {
                 .plusMinutes(ttlInMinutes)
                 .toInstant());
 
+        var roles = userDetails.getAuthorities()
+                .stream()
+                .map(GrantedAuthority::getAuthority)
+                .collect(Collectors.toSet());
+
+        var user = (User) userDetails;
+
         return Jwts.builder()
                 .claims(extraClaims)
                 .subject(userDetails.getUsername())
+                .claim("roles", roles)
+                .claim("user id", user.getUserId())
                 .issuedAt(new Date(System.currentTimeMillis()))
                 .expiration(expirationDateTime)
                 .signWith(getSecretKey())
@@ -74,5 +86,14 @@ public class JwtService {
     private SecretKey getSecretKey() {
         byte[] keyBytes = Decoders.BASE64.decode(secret);
         return Keys.hmacShaKeyFor(keyBytes);
+    }
+
+    public Long extractUserId(String token) {
+        return Jwts.parser()
+                .verifyWith(getSecretKey())
+                .build()
+                .parseSignedClaims(token)
+                .getPayload()
+                .get("user id", Long.class);
     }
 }
