@@ -8,19 +8,16 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
-import ro.ase.acs.mind_path.dto.request.TeacherCreationDto;
-import ro.ase.acs.mind_path.service.UserService;
+import ro.ase.acs.mind_path.dto.request.QuizCreationDto;
 
 @RestController
 @RequiredArgsConstructor
-@RequestMapping
-public class TeacherController {
+@RequestMapping("/quizzes")
+public class QuizController {
 
-    private final UserService userService;
-
-    @PostMapping("/teachers")
-    @PreAuthorize("hasRole('ADMIN')")
-    public ResponseEntity<String> create(@RequestBody @Valid TeacherCreationDto teacher) {
-        return ResponseEntity.ok(userService.createTeacher(teacher));
+    @PostMapping
+    @PreAuthorize("hasRole('TEACHER')")
+    public ResponseEntity<String> createQuiz(@RequestBody @Valid QuizCreationDto quiz) {
+        return null;
     }
 }

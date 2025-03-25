@@ -210,4 +210,27 @@ public class UserServiceTests {
                         user.getRole() == UserRole.TEACHER
         ));
     }
+
+    @Test
+    void UserService_FindByEmail_ReturnUserWhenEmailExists() {
+        String email = "test@example.com";
+        User user = new User();
+        user.setEmail(email);
+        when(userRepository.findByEmail(email)).thenReturn(Optional.of(user));
+
+        User result = userService.findByEmail(email);
+
+        assertNotNull(result);
+        assertEquals(email, result.getEmail());
+        verify(userRepository).findByEmail(email);
+    }
+
+    @Test
+    void UserService_FindByEmail_ThrowExceptionWhenUserNotFound() {
+        String email = "test@example.com";
+        when(userRepository.findByEmail(email)).thenReturn(Optional.empty());
+
+        assertThrows(UserNotFoundException.class, () -> userService.findByEmail(email));
+        verify(userRepository).findByEmail(email);
+    }
 }

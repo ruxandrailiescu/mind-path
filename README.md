@@ -24,3 +24,20 @@ MindPath implements the Model-View-Controller (MVC) software design pattern.
 - Any user can register as a STUDENT on the platform (/auth/register).
 - Any user can log in (/auth/login).
 - Users with STUDENT or TEACHER roles can change their password (/auth/change-password).
+
+## APIs
+### Users
+
+| Method | Endpoint       | Access                 | Description                  |
+|--------|----------------|------------------------|------------------------------|
+| GET    | /users/me      | Authenticated (all roles) | Get current user profile     |
+| PATCH  | /auth/change-password | Student, Teacher  | Change password              |
+| POST   | /auth/register | Public                 | Register as a student        |
+| POST   | /auth/login    | Public                 | Log in and get JWT token     |
+
+### Teachers
+
+| Method | Endpoint  | Access | Description      |
+|--------|-----------|--------|------------------|
+| POST   | /teachers | Admin  | Create a teacher |
+
