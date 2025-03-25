@@ -16,6 +16,8 @@ import ro.ase.acs.mind_path.dto.response.UserProfileDto;
 import ro.ase.acs.mind_path.entity.User;
 import ro.ase.acs.mind_path.service.UserService;
 
+import java.net.URI;
+
 @RestController
 @RequiredArgsConstructor
 @RequestMapping
@@ -30,7 +32,10 @@ public class UserController {
 
     @PostMapping("/auth/register")
     public ResponseEntity<String> registerAsStudent(@RequestBody @Valid StudentCreationDto student) {
-        return ResponseEntity.ok(userService.createStudent(student));
+        Long studentId = userService.createStudent(student);
+        return ResponseEntity
+                .created(URI.create("/users/" + studentId))
+                .body("Student registered successfully");
     }
 
     @PatchMapping("/auth/change-password")
@@ -38,13 +43,20 @@ public class UserController {
     public ResponseEntity<String> changePassword(@RequestBody @Valid PasswordChangeDto passwordChangeDto,
                                                  HttpServletRequest request) {
         userService.changePassword((Long) request.getAttribute("user id"), passwordChangeDto);
-        return ResponseEntity.ok("Password successfully changed");
+        return ResponseEntity.noContent().build();
     }
 
     @GetMapping("/users/me")
-    @PreAuthorize("hasAnyRole('ADMIN', 'TEACHER', 'STUDENT')")
+    @PreAuthorize("isAuthenticated()")
     public ResponseEntity<UserProfileDto> getCurrentUser(@AuthenticationPrincipal UserDetails userDetails) {
         User user = userService.findByEmail(userDetails.getUsername());
+        return ResponseEntity.ok(new UserProfileDto(user));
+    }
+
+    @GetMapping("/users/{id}")
+    @PreAuthorize("hasRole('TEACHER') or hasRole('ADMIN')")
+    public ResponseEntity<UserProfileDto> getUserById(@PathVariable Long id) {
+        User user = userService.findById(id);
         return ResponseEntity.ok(new UserProfileDto(user));
     }
 }

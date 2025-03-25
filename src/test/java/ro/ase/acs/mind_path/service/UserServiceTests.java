@@ -174,9 +174,6 @@ public class UserServiceTests {
         when(userRepository.findByEmail("student@example.com")).thenReturn(Optional.empty());
         when(passwordEncoder.encode("password123")).thenReturn("encodedPassword");
 
-        String result = userService.createStudent(dto);
-
-        assertEquals("STUDENT saved in the database", result);
         verify(userRepository).save(argThat(user ->
                 user.getEmail().equals("student@example.com") &&
                         user.getFirstName().equals("Alice") &&
@@ -199,9 +196,6 @@ public class UserServiceTests {
         when(userRepository.findByEmail("teacher@example.com")).thenReturn(Optional.empty());
         when(passwordEncoder.encode("securePass")).thenReturn("encodedSecurePass");
 
-        String result = userService.createTeacher(dto);
-
-        assertEquals("TEACHER saved in the database", result);
         verify(userRepository).save(argThat(user ->
                 user.getEmail().equals("teacher@example.com") &&
                         user.getFirstName().equals("John") &&

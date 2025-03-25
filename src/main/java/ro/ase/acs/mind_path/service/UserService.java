@@ -27,15 +27,15 @@ public class UserService {
     private final JwtService jwtService;
     private final AuthenticationManager authenticationManager;
 
-    public String createStudent(StudentCreationDto student) {
+    public Long createStudent(StudentCreationDto student) {
         return createUser(student.getEmail(), student.getFirstName(), student.getLastName(), student.getPassword(), student.getUserType());
     }
 
-    public String createTeacher(TeacherCreationDto teacher) {
+    public Long createTeacher(TeacherCreationDto teacher) {
         return createUser(teacher.getEmail(), teacher.getFirstName(), teacher.getLastName(), teacher.getPassword(), teacher.getUserType());
     }
 
-    private String createUser(String email, String firstName, String lastName, String password, String userType) {
+    private Long createUser(String email, String firstName, String lastName, String password, String userType) {
         userRepository.findByEmail(email)
                 .ifPresent(t -> {
                     throw new UserAlreadyExistsException();
@@ -51,7 +51,7 @@ public class UserService {
 
         userRepository.save(user);
 
-        return (userType + " saved in the database");
+        return user.getUserId();
     }
 
     public AuthenticationDto createSession(UserSessionDto userSessionDto) {
@@ -89,6 +89,11 @@ public class UserService {
 
     public User findByEmail(String email) {
         return userRepository.findByEmail(email)
+                .orElseThrow(UserNotFoundException::new);
+    }
+
+    public User findById(Long id) {
+        return userRepository.findById(id)
                 .orElseThrow(UserNotFoundException::new);
     }
 }
