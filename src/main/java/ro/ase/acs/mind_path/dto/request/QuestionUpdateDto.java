@@ -10,11 +10,12 @@ import lombok.NoArgsConstructor;
 @Builder
 @AllArgsConstructor
 @NoArgsConstructor
-public class QuizUpdateDto {
-    private String title;
-    private String status;
+public class QuestionUpdateDto {
+    private String questionText;
+    private String type;
+    private String difficulty;
 
     public boolean isEmpty() {
-        return title == null && status == null;
+        return questionText == null && type == null && difficulty == null;
     }
 }

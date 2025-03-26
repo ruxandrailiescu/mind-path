@@ -24,7 +24,8 @@ public class QuizController {
 
     @PostMapping
     @PreAuthorize("hasRole('TEACHER')")
-    public ResponseEntity<String> createQuiz(@RequestBody @Valid QuizCreationDto quiz, @AuthenticationPrincipal User user) {
+    public ResponseEntity<String> createQuiz(@RequestBody @Valid QuizCreationDto quiz,
+                                             @AuthenticationPrincipal User user) {
         Long quizId = quizService.createQuiz(quiz, user);
         return ResponseEntity
                 .created(URI.create("/quizzes/" + quizId))
@@ -55,6 +56,14 @@ public class QuizController {
                                            @RequestBody @Valid QuizUpdateDto dto,
                                            @AuthenticationPrincipal User user) {
         quizService.updateQuiz(id, dto, user);
+        return ResponseEntity.noContent().build();
+    }
+
+    @DeleteMapping("/{id}")
+    @PreAuthorize("hasRole('TEACHER')")
+    public ResponseEntity<Void> deleteQuiz(@PathVariable Long id,
+                                           @AuthenticationPrincipal User user) {
+        quizService.deleteQuiz(id, user);
         return ResponseEntity.noContent().build();
     }
 }

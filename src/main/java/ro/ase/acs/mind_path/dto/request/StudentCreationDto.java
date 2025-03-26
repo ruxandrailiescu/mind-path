@@ -1,5 +1,6 @@
 package ro.ase.acs.mind_path.dto.request;
 
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Pattern;
@@ -14,10 +15,13 @@ import lombok.NoArgsConstructor;
 @AllArgsConstructor
 @NoArgsConstructor
 public class StudentCreationDto {
+    @NotBlank(message = "Email cannot be blank")
     @Email(message = "Email must contain a valid email address")
     private String email;
+    @NotBlank(message = "Password cannot be blank")
     @Size(min = 4, max = 20, message = "Password length should be between 4 and 20 characters")
     private String password;
+    @NotBlank(message = "User type cannot be blank")
     @Pattern(regexp = "STUDENT", message = "The user type of a student must be set to STUDENT")
     private String userType;
     @NotBlank(message = "First name cannot be blank")

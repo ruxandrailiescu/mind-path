@@ -4,6 +4,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import ro.ase.acs.mind_path.dto.request.QuizCreationDto;
 import ro.ase.acs.mind_path.dto.request.QuizUpdateDto;
+import ro.ase.acs.mind_path.dto.response.QuestionSummaryDto;
 import ro.ase.acs.mind_path.dto.response.QuizSummaryDto;
 import ro.ase.acs.mind_path.entity.Quiz;
 import ro.ase.acs.mind_path.entity.User;
@@ -29,11 +30,7 @@ public class QuizService {
         QuizStatus quizStatus = QuizStatus.DRAFT;
 
         if (dto.getStatus() != null) {
-            try {
-                quizStatus = QuizStatus.valueOf(dto.getStatus().toUpperCase());
-            } catch (IllegalArgumentException e) {
-                throw new BadRequestException("Invalid quiz status: " + dto.getStatus());
-            }
+            quizStatus = QuizStatus.valueOf(dto.getStatus().toUpperCase());
         }
 
         Quiz quiz = Quiz.builder()
@@ -50,40 +47,43 @@ public class QuizService {
     public List<QuizSummaryDto> getAllQuizzes() {
         return quizRepository.findAll()
                 .stream()
-                .map(q -> new QuizSummaryDto(
-                        q.getQuizId(),
-                        q.getTitle(),
-                        q.getCreatedBy().getEmail(),
-                        q.getStatus(),
-                        q.getCreatedAt()
-                ))
+                .map(this::mapToQuizSummaryDto)
                 .toList();
     }
 
     public List<QuizSummaryDto> getActiveQuizzes() {
         return quizRepository.findAllByStatus(QuizStatus.ACTIVE)
                 .stream()
-                .map(q -> new QuizSummaryDto(
-                        q.getQuizId(),
-                        q.getTitle(),
-                        q.getCreatedBy().getEmail(),
-                        q.getStatus(),
-                        q.getCreatedAt()
-                ))
+                .map(this::mapToQuizSummaryDto)
                 .toList();
     }
 
-    public QuizSummaryDto getQuizById(Long id) {
-        Quiz quiz = quizRepository.findById(id)
-                .orElseThrow(QuizNotFoundException::new);
+    private QuizSummaryDto mapToQuizSummaryDto(Quiz quiz) {
+        List<QuestionSummaryDto> questions = quiz.getQuestions()
+                .stream()
+                .map(q -> new QuestionSummaryDto(
+                        q.getQuestionId(),
+                        q.getQuestionText(),
+                        q.getType(),
+                        q.getDifficulty()
+                ))
+                .toList();
 
         return new QuizSummaryDto(
                 quiz.getQuizId(),
                 quiz.getTitle(),
                 quiz.getCreatedBy().getEmail(),
                 quiz.getStatus(),
-                quiz.getCreatedAt()
+                quiz.getCreatedAt(),
+                questions
         );
+    }
+
+    public QuizSummaryDto getQuizById(Long id) {
+        Quiz quiz = quizRepository.findById(id)
+                .orElseThrow(QuizNotFoundException::new);
+
+        return mapToQuizSummaryDto(quiz);
     }
 
     public void updateQuiz(Long id, QuizUpdateDto dto, User user) {
@@ -94,18 +94,37 @@ public class QuizService {
             throw new ForbiddenException("Only the teacher that created the quiz can update it");
         }
 
+        if (dto.getStatus() != null) {
+            quiz.setStatus(QuizStatus.valueOf(dto.getStatus().toUpperCase()));
+        }
+
         if (quiz.getStatus() == QuizStatus.ARCHIVED) {
             throw new BadRequestException("Archived quizzes cannot be updated");
+        }
+
+        if (dto.isEmpty()) {
+            throw new BadRequestException("Nothing to update");
+        }
+
+        if (quizRepository.existsByTitleIgnoreCase(dto.getTitle())) {
+            throw new BadRequestException("A quiz with this title already exists");
         }
 
         if (dto.getTitle() != null) {
             quiz.setTitle(dto.getTitle());
         }
 
-        if (dto.getStatus() != null) {
-            quiz.setStatus(QuizStatus.valueOf(dto.getStatus().toUpperCase()));
+        quizRepository.save(quiz);
+    }
+
+    public void deleteQuiz(Long id, User user) {
+        Quiz quiz = quizRepository.findById(id)
+                .orElseThrow(QuizNotFoundException::new);
+
+        if (!quiz.getCreatedBy().getUserId().equals(user.getUserId())) {
+            throw new ForbiddenException("Only the teacher that created the quiz can delete it");
         }
 
-        quizRepository.save(quiz);
+        quizRepository.delete(quiz);
     }
 }

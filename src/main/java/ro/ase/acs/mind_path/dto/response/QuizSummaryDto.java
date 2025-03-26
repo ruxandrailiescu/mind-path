@@ -6,6 +6,7 @@ import lombok.NoArgsConstructor;
 import ro.ase.acs.mind_path.entity.enums.QuizStatus;
 
 import java.time.LocalDateTime;
+import java.util.List;
 
 @Data
 @AllArgsConstructor
@@ -16,4 +17,5 @@ public class QuizSummaryDto {
     private String createdBy;
     private QuizStatus status;
     private LocalDateTime createdAt;
+    private List<QuestionSummaryDto> questions;
 }

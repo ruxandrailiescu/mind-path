@@ -44,26 +44,29 @@ MindPath implements the Model-View-Controller (MVC) software design pattern.
 
 ### Quizzes
 
-| Method | Endpoint | Access | Description |
-|-------|----------|--------|-------------|
-| POST  | /quizzes | Teacher | Create a quiz |
-| GET   | /quizzes | Authenticated | Get list of all quizzes |
-| GET   | /quizzes/active | Authenticated | Get active quizzes |
-| GET   | /quizzes/{id}   | Authenticated | Get quiz by id |
-| PATCH | /quizzes/{id} | Teacher | Update quiz |
+| Method | Endpoint | Access | Description                                      |
+|-------|----------|--------|--------------------------------------------------|
+| POST  | /quizzes | Teacher | Create a quiz                                    |
+| GET   | /quizzes | Authenticated | Get list of all quizzes                          |
+| GET   | /quizzes/active | Authenticated | Get active quizzes                               |
+| GET   | /quizzes/{id}   | Authenticated | Get quiz by id                                   |
+| PATCH | /quizzes/{id} | Teacher | Update a quiz, only if the user created the quiz |
+| DELETE | /quizzes/{id} | Teacher | Delete a quiz, only if the user created the quiz |
 
 ### Questions
 
-| Method | Endpoint | Access | Description |
-|--------|----------|--------|-------------|
-| POST   | /quizzes/{quizId}/questions | Teacher | Add question to a quiz |
-| GET    | /quizzes/{quizId}/questions | Authenticated | Get questions for a quiz |
-| PUT/PATCH | /questions/{id} | Teacher | Edit a question |
-| DELETE | /questions/{id}    | Teacher | Delete a question |
+| Method | Endpoint | Access | Description                                               |
+|-------|----------|--------|-----------------------------------------------------------|
+| POST  | /quizzes/{quizId}/questions | Teacher | Add question to a quiz, only if the user created the quiz |
+| GET   | /quizzes/{quizId}/questions | Authenticated | Get questions for a quiz                                  |
+| PATCH | /questions/{id} | Teacher | Update a question, only if the user created the quiz      |
+| DELETE | /questions/{id}    | Teacher | Delete a question, only if the user created the quiz      |
 
 ### Answers
 
-| Method | Endpoint | Access | Description |
-|--------|----------|--------|-------------|
-| POST   | /questions/{questionId}/answers | Teacher | Add answer options to a question |
-| GET    | /questions/{questionId}/answers | Authenticated | Get answers for a question |
+| Method | Endpoint | Access | Description                                                           |
+|--------|----------|--------|-----------------------------------------------------------------------|
+| POST   | /questions/{questionId}/answers | Teacher | Add answer option to a question, only if the user created the quiz    |
+| GET    | /questions/{questionId}/answers | Authenticated | Get answers for a question                                            |
+| PATCH  | /questions/{questionId}/answers | Teacher | Update answer option to a question, only if the user created the quiz |
+| DELETE | /questions/{questionId}/answers | Teacher | Delete answer option to a question, only if the user created the quiz |
