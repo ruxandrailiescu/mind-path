@@ -64,9 +64,9 @@ MindPath implements the Model-View-Controller (MVC) software design pattern.
 
 ### Answers
 
-| Method | Endpoint | Access | Description                                                           |
-|--------|----------|--------|-----------------------------------------------------------------------|
+| Method | Endpoint                        | Access | Description                                                           |
+|--------|---------------------------------|--------|-----------------------------------------------------------------------|
 | POST   | /questions/{questionId}/answers | Teacher | Add answer option to a question, only if the user created the quiz    |
 | GET    | /questions/{questionId}/answers | Authenticated | Get answers for a question                                            |
-| PATCH  | /questions/{questionId}/answers | Teacher | Update answer option to a question, only if the user created the quiz |
-| DELETE | /questions/{questionId}/answers | Teacher | Delete answer option to a question, only if the user created the quiz |
+| PATCH  | /answers/{id}                   | Teacher | Update answer option to a question, only if the user created the quiz |
+| DELETE | /answers/{id}           | Teacher | Delete answer option to a question, only if the user created the quiz |

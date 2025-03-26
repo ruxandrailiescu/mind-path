@@ -2,8 +2,10 @@ package ro.ase.acs.mind_path.service;
 
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
+import ro.ase.acs.mind_path.dto.mapper.QuestionMapper;
 import ro.ase.acs.mind_path.dto.request.QuizCreationDto;
 import ro.ase.acs.mind_path.dto.request.QuizUpdateDto;
+import ro.ase.acs.mind_path.dto.response.AnswerSummaryDto;
 import ro.ase.acs.mind_path.dto.response.QuestionSummaryDto;
 import ro.ase.acs.mind_path.dto.response.QuizSummaryDto;
 import ro.ase.acs.mind_path.entity.Quiz;
@@ -20,6 +22,7 @@ import java.util.List;
 @RequiredArgsConstructor
 public class QuizService {
 
+    private final QuestionMapper questionMapper;
     private final QuizRepository quizRepository;
 
     public Long createQuiz(QuizCreationDto dto, User user) {
@@ -61,12 +64,7 @@ public class QuizService {
     private QuizSummaryDto mapToQuizSummaryDto(Quiz quiz) {
         List<QuestionSummaryDto> questions = quiz.getQuestions()
                 .stream()
-                .map(q -> new QuestionSummaryDto(
-                        q.getQuestionId(),
-                        q.getQuestionText(),
-                        q.getType(),
-                        q.getDifficulty()
-                ))
+                .map(questionMapper::toQuestionSummaryDto)
                 .toList();
 
         return new QuizSummaryDto(
