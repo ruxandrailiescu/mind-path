@@ -3,7 +3,7 @@
 
 MindPath implements the Model-View-Controller (MVC) software design pattern.
 
-## Tech Stack
+## Backend Tech Stack
 - Java 21 and Spring Boot 3 application
 - Java build tools: Maven
 - Database: PostgreSQL (optional: H2 for development and testing)
@@ -70,3 +70,11 @@ MindPath implements the Model-View-Controller (MVC) software design pattern.
 | GET    | /questions/{questionId}/answers | Authenticated | Get answers for a question                                            |
 | PATCH  | /answers/{id}                   | Teacher | Update answer option to a question, only if the user created the quiz |
 | DELETE | /answers/{id}           | Teacher | Delete answer option to a question, only if the user created the quiz |
+
+## Frontend Tech Stack
+- React: Frontend framework
+- TypeScript: Type-safe JavaScript
+- Vite: Fast build tool + dev server
+- Tailwind CSS: Utility-first styling
+- Axios: API requests
+- React Router: Routing between pages
