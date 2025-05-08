@@ -3,6 +3,7 @@ package ro.ase.acs.mind_path.entity;
 import jakarta.persistence.*;
 import lombok.*;
 import org.hibernate.annotations.UpdateTimestamp;
+import ro.ase.acs.mind_path.entity.enums.AttemptStatus;
 
 import java.time.LocalDateTime;
 import java.util.List;
@@ -35,4 +36,12 @@ public class QuizAttempt {
     @ToString.Exclude
     @EqualsAndHashCode.Exclude
     private List<UserResponse> userResponses;
+    @Column(nullable = false)
+    @Enumerated(EnumType.STRING)
+    private AttemptStatus status;
+    @Column(name = "started_at", nullable = false)
+    private LocalDateTime startedAt;
+    @ManyToOne
+    @JoinColumn(name = "session_id")
+    private QuizSession quizSession;
 }

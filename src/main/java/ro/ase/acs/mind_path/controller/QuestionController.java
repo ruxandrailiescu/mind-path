@@ -24,11 +24,11 @@ public class QuestionController {
 
     @PostMapping("/quizzes/{quizId}/questions")
     @PreAuthorize("hasRole('TEACHER')")
-    public ResponseEntity<Void> addQuestionToQuiz(@PathVariable Long quizId,
+    public ResponseEntity<Long> addQuestionToQuiz(@PathVariable Long quizId,
                                                   @RequestBody @Valid QuestionCreationDto dto,
                                                   @AuthenticationPrincipal User user) {
-        questionService.addQuestionToQuiz(quizId, dto, user);
-        return ResponseEntity.status(HttpStatus.CREATED).build();
+        Long questionId = questionService.addQuestionToQuiz(quizId, dto, user);
+        return ResponseEntity.ok(questionId);
     }
 
     @GetMapping("/quizzes/{quizId}/questions")

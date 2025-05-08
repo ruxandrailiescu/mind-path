@@ -96,10 +96,6 @@ public class QuizService {
             quiz.setStatus(QuizStatus.valueOf(dto.getStatus().toUpperCase()));
         }
 
-        if (quiz.getStatus() == QuizStatus.ARCHIVED) {
-            throw new BadRequestException("Archived quizzes cannot be updated");
-        }
-
         if (dto.isEmpty()) {
             throw new BadRequestException("Nothing to update");
         }

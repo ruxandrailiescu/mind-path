@@ -31,7 +31,7 @@ public class QuestionService {
     private final QuestionRepository questionRepository;
     private final QuizRepository quizRepository;
 
-    public void addQuestionToQuiz(Long quizId, QuestionCreationDto dto, User user) {
+    public Long addQuestionToQuiz(Long quizId, QuestionCreationDto dto, User user) {
         Quiz quiz = quizRepository.findById(quizId)
                 .orElseThrow(QuizNotFoundException::new);
 
@@ -60,6 +60,7 @@ public class QuestionService {
 
         quiz.getQuestions().add(question);
         questionRepository.save(question);
+        return question.getQuestionId();
     }
 
     public List<QuestionSummaryDto> getQuestionsForQuiz(Long quizId) {

@@ -24,12 +24,10 @@ public class QuizController {
 
     @PostMapping
     @PreAuthorize("hasRole('TEACHER')")
-    public ResponseEntity<String> createQuiz(@RequestBody @Valid QuizCreationDto quiz,
+    public ResponseEntity<Long> createQuiz(@RequestBody @Valid QuizCreationDto quiz,
                                              @AuthenticationPrincipal User user) {
         Long quizId = quizService.createQuiz(quiz, user);
-        return ResponseEntity
-                .created(URI.create("/quizzes/" + quizId))
-                .body("Quiz created successfully");
+        return ResponseEntity.ok(quizId);
     }
 
     @GetMapping
