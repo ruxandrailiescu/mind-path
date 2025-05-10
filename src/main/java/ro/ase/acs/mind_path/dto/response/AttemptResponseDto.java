@@ -13,7 +13,7 @@ import java.util.List;
 @Builder
 @AllArgsConstructor
 @NoArgsConstructor
-public class AttemptResponse {
+public class AttemptResponseDto {
     private Long attemptId;
     private Long quizId;
     private String quizTitle;
@@ -22,5 +22,5 @@ public class AttemptResponse {
     private Integer attemptTime;
     private LocalDateTime startedAt;
     private LocalDateTime completedAt;
-    private List<QuestionSummaryDto> questions;
+    private List<QuestionDto> questions;
 }

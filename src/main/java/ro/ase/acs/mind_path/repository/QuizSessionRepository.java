@@ -11,4 +11,6 @@ import java.util.Optional;
 public interface QuizSessionRepository extends JpaRepository<QuizSession, Long> {
     Optional<QuizSession> findByQuizQuizIdAndStatus(Long quizId, SessionStatus status);
     Optional<QuizSession> findByAccessCodeAndStatus(String accessCode, SessionStatus status);
+
+    QuizSession findByAccessCode(String accessCode);
 }

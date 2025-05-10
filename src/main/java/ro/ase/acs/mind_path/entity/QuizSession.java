@@ -5,9 +5,11 @@ import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
+import org.hibernate.annotations.CreationTimestamp;
 import ro.ase.acs.mind_path.entity.enums.SessionStatus;
 
 import java.time.LocalDateTime;
+import java.util.UUID;
 
 @Data
 @Entity
@@ -26,7 +28,7 @@ public class QuizSession {
     @ManyToOne
     @JoinColumn(name = "created_by", nullable = false)
     private User createdBy;
-    @Column(name = "access_code", nullable = false)
+    @Column(name = "access_code", nullable = false, unique = true)
     private String accessCode;
     @Column(name = "start_time", nullable = false)
     private LocalDateTime startTime;
@@ -35,4 +37,14 @@ public class QuizSession {
     @Column(nullable = false)
     @Enumerated(EnumType.STRING)
     private SessionStatus status;
+    @Column(nullable = false, name = "created_at", updatable = false)
+    @CreationTimestamp
+    private LocalDateTime createdAt;
+
+    @PrePersist
+    public void prePersist() {
+        if (accessCode == null || accessCode.isEmpty()) {
+            accessCode = UUID.randomUUID().toString().substring(0, 6).toUpperCase();
+        }
+    }
 }
