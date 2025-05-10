@@ -41,10 +41,25 @@ public class QuizSession {
     @CreationTimestamp
     private LocalDateTime createdAt;
 
+    /**
+     * Automatically generates a unique access code when a session is created.
+     */
     @PrePersist
     public void prePersist() {
         if (accessCode == null || accessCode.isEmpty()) {
             accessCode = UUID.randomUUID().toString().substring(0, 6).toUpperCase();
+        }
+    }
+
+    /**
+     * Checks if the session is expired when loaded from database and updates status if needed.
+     * Note: This doesn't save the entity, so the status change won't be persisted unless the entity is saved.
+     */
+    @PostLoad
+    public void checkExpiration() {
+        if (status == SessionStatus.ACTIVE && endTime.isBefore(LocalDateTime.now())) {
+            status = SessionStatus.EXPIRED;
+            // The actual save operation needs to happen in the service layer
         }
     }
 }

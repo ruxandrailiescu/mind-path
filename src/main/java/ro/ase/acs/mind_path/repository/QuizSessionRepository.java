@@ -5,6 +5,7 @@ import org.springframework.stereotype.Repository;
 import ro.ase.acs.mind_path.entity.QuizSession;
 import ro.ase.acs.mind_path.entity.enums.SessionStatus;
 
+import java.util.List;
 import java.util.Optional;
 
 @Repository
@@ -13,4 +14,6 @@ public interface QuizSessionRepository extends JpaRepository<QuizSession, Long> 
     Optional<QuizSession> findByAccessCodeAndStatus(String accessCode, SessionStatus status);
 
     QuizSession findByAccessCode(String accessCode);
+
+    List<QuizSession> findByStatus(SessionStatus status);
 }

@@ -1,7 +1,10 @@
 package ro.ase.acs.mind_path.exception;
 
-public class QuizAttemptException extends RuntimeException {
+import org.springframework.http.HttpStatus;
+
+public class QuizAttemptException extends StoreException {
     public QuizAttemptException(String message) {
-        super(message);
+        this.setHttpStatus(HttpStatus.BAD_REQUEST);
+        this.setMessage(message);
     }
 }

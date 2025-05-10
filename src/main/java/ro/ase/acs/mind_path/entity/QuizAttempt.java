@@ -41,7 +41,16 @@ public class QuizAttempt {
     private AttemptStatus status;
     @Column(name = "started_at", nullable = false)
     private LocalDateTime startedAt;
+    @Column(name = "last_accessed_at")
+    private LocalDateTime lastAccessedAt;
     @ManyToOne
     @JoinColumn(name = "session_id")
     private QuizSession quizSession;
+
+    @PrePersist
+    public void prePersist() {
+        if (lastAccessedAt == null) {
+            lastAccessedAt = startedAt;
+        }
+    }
 }
