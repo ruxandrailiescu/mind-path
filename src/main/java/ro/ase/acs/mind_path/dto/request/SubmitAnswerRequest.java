@@ -13,4 +13,5 @@ public class SubmitAnswerRequest {
     private Long questionId;
     private Long answerId;
     private Integer responseTime;
+    private Boolean isMultipleChoice;
 }

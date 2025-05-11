@@ -9,16 +9,14 @@ import ro.ase.acs.mind_path.dto.request.SubmitAttemptRequest;
 import ro.ase.acs.mind_path.dto.response.*;
 import ro.ase.acs.mind_path.entity.*;
 import ro.ase.acs.mind_path.entity.enums.AttemptStatus;
+import ro.ase.acs.mind_path.entity.enums.QuestionType;
 import ro.ase.acs.mind_path.entity.enums.QuizStatus;
 import ro.ase.acs.mind_path.entity.enums.SessionStatus;
 import ro.ase.acs.mind_path.exception.QuizAttemptException;
 import ro.ase.acs.mind_path.repository.*;
 
 import java.time.LocalDateTime;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Map;
-import java.util.Optional;
+import java.util.*;
 import java.util.stream.Collectors;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -153,7 +151,7 @@ public class QuizAttemptService {
     private boolean checkAndUpdateAttemptStatus(QuizAttempt attempt) {
         // Only check IN_PROGRESS attempts
         if (attempt.getStatus() != AttemptStatus.IN_PROGRESS) {
-            return attempt.getStatus() == AttemptStatus.IN_PROGRESS;
+            return false;
         }
 
         // If there's an associated session, check if it's still active
@@ -194,6 +192,11 @@ public class QuizAttemptService {
             throw new QuizAttemptException("Question does not belong to this quiz");
         }
 
+        // Check if this is a multiple choice question
+        boolean isMultipleChoice = request.getIsMultipleChoice() != null &&
+                request.getIsMultipleChoice() &&
+                question.getType() == QuestionType.MULTIPLE_CHOICE;
+
         Answer selectedAnswer = answerRepository.findById(request.getAnswerId())
                 .orElseThrow(() -> new QuizAttemptException("Answer not found"));
 
@@ -202,28 +205,56 @@ public class QuizAttemptService {
             throw new QuizAttemptException("Answer does not belong to this question");
         }
 
-        // Check if response already exists for this question and update it
-        Optional<UserResponse> existingResponse = userResponseRepository
-                .findByQuizAttemptAttemptIdAndQuestionQuestionId(attemptId, question.getQuestionId());
+        // For multiple choice questions
+        if (isMultipleChoice) {
+            // Find all existing responses for this question
+            List<UserResponse> existingResponses = userResponseRepository
+                    .findByQuizAttemptAttemptIdAndQuestionQuestionId(attemptId, question.getQuestionId());
 
-        UserResponse response;
-        if (existingResponse.isPresent()) {
-            response = existingResponse.get();
-            response.setSelectedAnswer(selectedAnswer);
-            response.setIsCorrect(selectedAnswer.getIsCorrect());
-            response.setResponseTime(request.getResponseTime());
+            // Check if this answer is already selected
+            Optional<UserResponse> existingResponse = existingResponses.stream()
+                    .filter(r -> r.getSelectedAnswer().getAnswerId().equals(selectedAnswer.getAnswerId()))
+                    .findFirst();
+
+            if (existingResponse.isPresent()) {
+                // If already selected, remove it (toggle behavior)
+                userResponseRepository.delete(existingResponse.get());
+                return existingResponse.get();
+            } else {
+                // Add a new response
+                UserResponse response = UserResponse.builder()
+                        .quizAttempt(attempt)
+                        .question(question)
+                        .selectedAnswer(selectedAnswer)
+                        .isCorrect(selectedAnswer.getIsCorrect())
+                        .responseTime(request.getResponseTime())
+                        .build();
+                return userResponseRepository.save(response);
+            }
         } else {
-            // Create new response
-            response = UserResponse.builder()
-                    .quizAttempt(attempt)
-                    .question(question)
-                    .selectedAnswer(selectedAnswer)
-                    .isCorrect(selectedAnswer.getIsCorrect())
-                    .responseTime(request.getResponseTime())
-                    .build();
-        }
+            // For single choice questions
+            // Check if response already exists for this question and update it
+            Optional<UserResponse> existingResponse = userResponseRepository
+                    .findFirstByQuizAttemptAttemptIdAndQuestionQuestionId(attemptId, question.getQuestionId());
 
-        return userResponseRepository.save(response);
+            UserResponse response;
+            if (existingResponse.isPresent()) {
+                response = existingResponse.get();
+                response.setSelectedAnswer(selectedAnswer);
+                response.setIsCorrect(selectedAnswer.getIsCorrect());
+                response.setResponseTime(request.getResponseTime());
+            } else {
+                // Create new response
+                response = UserResponse.builder()
+                        .quizAttempt(attempt)
+                        .question(question)
+                        .selectedAnswer(selectedAnswer)
+                        .isCorrect(selectedAnswer.getIsCorrect())
+                        .responseTime(request.getResponseTime())
+                        .build();
+            }
+            return userResponseRepository.save(response);
+        }
     }
 
     public AttemptResultDto getAttemptResults(Long attemptId, Long userId) {
@@ -248,14 +279,8 @@ public class QuizAttemptService {
         // Get all responses for this attempt
         List<UserResponse> responses = userResponseRepository.findByQuizAttemptAttemptId(attemptId);
 
-        // Create a map of question id to user response for easier lookup
-        Map<Long, UserResponse> responseMap = responses.stream()
-                .collect(Collectors.toMap(r -> r.getQuestion().getQuestionId(), r -> r));
-
-        // Count correct answers
-        long correctAnswersCount = responses.stream()
-                .filter(UserResponse::getIsCorrect)
-                .count();
+        Map<Long, List<UserResponse>> responseMap = responses.stream()
+                .collect(Collectors.groupingBy(r -> r.getQuestion().getQuestionId()));
 
         // Map questions to result DTOs
         List<QuestionResultDto> questionResults = questions.stream()
@@ -263,14 +288,14 @@ public class QuizAttemptService {
                     // Get all possible answers for this question
                     List<Answer> answers = answerRepository.findByQuestionQuestionId(question.getQuestionId());
 
-                    // Get the user's response for this question
-                    UserResponse userResponse = responseMap.getOrDefault(question.getQuestionId(), null);
+                    // Get the user's responses for this question
+                    List<UserResponse> userResponses = responseMap.getOrDefault(question.getQuestionId(), List.of());
 
                     // Map answers to result DTOs
                     List<AnswerResultDto> answerResults = answers.stream()
                             .map(answer -> {
-                                boolean isSelected = userResponse != null &&
-                                        userResponse.getSelectedAnswer().getAnswerId().equals(answer.getAnswerId());
+                                boolean isSelected = userResponses.stream()
+                                        .anyMatch(r -> r.getSelectedAnswer().getAnswerId().equals(answer.getAnswerId()));
 
                                 return AnswerResultDto.builder()
                                         .id(answer.getAnswerId())
@@ -281,17 +306,40 @@ public class QuizAttemptService {
                             })
                             .collect(Collectors.toList());
 
-                    boolean isQuestionCorrect = userResponse != null && userResponse.getIsCorrect();
+                    // For multiple choice questions
+                    boolean isCorrect = false;
+                    if (question.getType() == QuestionType.MULTIPLE_CHOICE) {
+                        // All selected answers must be correct, and all correct answers must be selected
+                        List<Long> selectedAnswerIds = userResponses.stream()
+                                .map(r -> r.getSelectedAnswer().getAnswerId())
+                                .toList();
+
+                        List<Long> correctAnswerIds = answers.stream()
+                                .filter(Answer::getIsCorrect)
+                                .map(Answer::getAnswerId)
+                                .toList();
+
+                        isCorrect = new HashSet<>(selectedAnswerIds).containsAll(correctAnswerIds) &&
+                                new HashSet<>(correctAnswerIds).containsAll(selectedAnswerIds);
+                    } else {
+                        // For single choice, if the user selected an answer and it's correct
+                        isCorrect = !userResponses.isEmpty() && userResponses.getFirst().getIsCorrect();
+                    }
 
                     return QuestionResultDto.builder()
                             .id(question.getQuestionId())
                             .text(question.getQuestionText())
                             .type(question.getType().toString())
-                            .isCorrect(isQuestionCorrect)
+                            .isCorrect(isCorrect)
                             .answers(answerResults)
                             .build();
                 })
                 .collect(Collectors.toList());
+
+        // Count correct answers
+        long correctAnswersCount = questionResults.stream()
+                .filter(QuestionResultDto::getIsCorrect)
+                .count();
 
         // Build and return the result DTO
         return AttemptResultDto.builder()
@@ -329,11 +377,38 @@ public class QuizAttemptService {
         List<Question> questions = questionRepository.findByQuizQuizId(attempt.getQuiz().getQuizId());
 
         // Calculate score
-        long correctAnswers = responses.stream()
-                .filter(UserResponse::getIsCorrect)
-                .count();
+        float totalCorrect = 0;
+        for (Question question : questions) {
+            List<UserResponse> questionResponses = responses.stream()
+                    .filter(r -> r.getQuestion().getQuestionId().equals(question.getQuestionId()))
+                    .toList();
 
-        float score = (float) correctAnswers / questions.size() * 100;
+            if (question.getType() == QuestionType.MULTIPLE_CHOICE) {
+                // Get all correct answers for this question
+                List<Long> correctAnswerIds = answerRepository.findByQuestionQuestionIdAndIsCorrect(
+                        question.getQuestionId(), true).stream()
+                        .map(Answer::getAnswerId)
+                        .toList();
+
+                // Get user selected answers
+                List<Long> selectedAnswerIds = questionResponses.stream()
+                        .map(r -> r.getSelectedAnswer().getAnswerId())
+                        .toList();
+
+                // All selected answers must be correct, and all correct answers must be selected
+                if (new HashSet<>(selectedAnswerIds).containsAll(correctAnswerIds) &&
+                    new HashSet<>(correctAnswerIds).containsAll(selectedAnswerIds)) {
+                    totalCorrect++;
+                }
+            } else {
+                // For single choice questions
+                if (!questionResponses.isEmpty() && questionResponses.getFirst().getIsCorrect()) {
+                    totalCorrect++;
+                }
+            }
+        }
+
+        float score = (totalCorrect / questions.size()) * 100;
 
         // Update attempt
         attempt.setStatus(AttemptStatus.SUBMITTED);
@@ -405,7 +480,6 @@ public class QuizAttemptService {
                             .answers(answerDtos)
                             .build();
                 })
-
                 .collect(Collectors.toList());
 
         return AttemptResponseDto.builder()

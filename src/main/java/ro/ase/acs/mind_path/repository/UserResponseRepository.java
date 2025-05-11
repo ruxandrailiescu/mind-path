@@ -10,5 +10,6 @@ import java.util.Optional;
 @Repository
 public interface UserResponseRepository extends JpaRepository<UserResponse, Long> {
     List<UserResponse> findByQuizAttemptAttemptId(Long attemptId);
-    Optional<UserResponse> findByQuizAttemptAttemptIdAndQuestionQuestionId(Long attemptId, Long questionId);
+    List<UserResponse> findByQuizAttemptAttemptIdAndQuestionQuestionId(Long attemptId, Long questionId);
+    Optional<UserResponse> findFirstByQuizAttemptAttemptIdAndQuestionQuestionId(Long attemptId, Long questionId);
 }
