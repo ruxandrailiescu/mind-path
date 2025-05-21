@@ -12,4 +12,9 @@ public interface UserResponseRepository extends JpaRepository<UserResponse, Long
     List<UserResponse> findByQuizAttemptAttemptId(Long attemptId);
     List<UserResponse> findByQuizAttemptAttemptIdAndQuestionQuestionId(Long attemptId, Long questionId);
     Optional<UserResponse> findFirstByQuizAttemptAttemptIdAndQuestionQuestionId(Long attemptId, Long questionId);
+    Optional<UserResponse> findByQuizAttemptAttemptIdAndQuestionQuestionIdAndSelectedAnswerAnswerId(
+            Long attemptId, Long questionId, Long selectedAnswerId
+    );
+    boolean existsByQuizAttemptAttemptIdAndQuestionQuestionIdAndSelectedAnswerAnswerId(Long attemptId, Long questionId, Long answerId);
+    void deleteByQuizAttemptAttemptIdAndQuestionQuestionId(Long attemptId, Long questionId);
 }

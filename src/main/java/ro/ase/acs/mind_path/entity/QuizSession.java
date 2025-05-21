@@ -37,9 +37,9 @@ public class QuizSession {
     @Column(nullable = false)
     @Enumerated(EnumType.STRING)
     private SessionStatus status;
-    @Column(nullable = false, name = "created_at", updatable = false)
-    @CreationTimestamp
-    private LocalDateTime createdAt;
+//    @Column(nullable = false, name = "created_at", updatable = false)
+//    @CreationTimestamp
+//    private LocalDateTime createdAt;
 
     /**
      * Automatically generates a unique access code when a session is created.

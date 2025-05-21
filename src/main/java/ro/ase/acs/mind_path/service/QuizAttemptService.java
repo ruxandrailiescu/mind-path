@@ -3,6 +3,7 @@ package ro.ase.acs.mind_path.service;
 import lombok.RequiredArgsConstructor;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 import ro.ase.acs.mind_path.dto.request.StartAttemptRequest;
 import ro.ase.acs.mind_path.dto.request.SubmitAnswerRequest;
 import ro.ase.acs.mind_path.dto.request.SubmitAttemptRequest;
@@ -170,7 +171,8 @@ public class QuizAttemptService {
         return true;
     }
 
-    public UserResponse submitAnswer(Long attemptId, Long userId, SubmitAnswerRequest request) {
+    @Transactional
+    public void submitAnswer(Long attemptId, Long userId, SubmitAnswerRequest request) {
         QuizAttempt attempt = quizAttemptRepository.findByAttemptIdAndUserUserId(attemptId, userId)
                 .orElseThrow(() -> new QuizAttemptException("Attempt not found or not accessible"));
 
@@ -197,63 +199,34 @@ public class QuizAttemptService {
                 request.getIsMultipleChoice() &&
                 question.getType() == QuestionType.MULTIPLE_CHOICE;
 
-        Answer selectedAnswer = answerRepository.findById(request.getAnswerId())
-                .orElseThrow(() -> new QuizAttemptException("Answer not found"));
+        userResponseRepository.deleteByQuizAttemptAttemptIdAndQuestionQuestionId(attemptId, question.getQuestionId());
 
-        // Verify answer belongs to the question
-        if (!selectedAnswer.getQuestion().getQuestionId().equals(question.getQuestionId())) {
-            throw new QuizAttemptException("Answer does not belong to this question");
+        List<Long> selectedAnswerIds = request.getSelectedAnswerIds();
+        if (selectedAnswerIds == null || selectedAnswerIds.isEmpty()) {
+            throw new QuizAttemptException("No answers submitted for this question");
         }
 
-        // For multiple choice questions
-        if (isMultipleChoice) {
-            // Find all existing responses for this question
-            List<UserResponse> existingResponses = userResponseRepository
-                    .findByQuizAttemptAttemptIdAndQuestionQuestionId(attemptId, question.getQuestionId());
+        if (!isMultipleChoice && selectedAnswerIds.size() > 1) {
+            throw new QuizAttemptException("Single choice question must have only one selected answer");
+        }
 
-            // Check if this answer is already selected
-            Optional<UserResponse> existingResponse = existingResponses.stream()
-                    .filter(r -> r.getSelectedAnswer().getAnswerId().equals(selectedAnswer.getAnswerId()))
-                    .findFirst();
+        for (Long answerId : selectedAnswerIds) {
+            Answer answer = answerRepository.findById(answerId)
+                    .orElseThrow(() -> new QuizAttemptException("Answer not found"));
 
-            if (existingResponse.isPresent()) {
-                // If already selected, remove it (toggle behavior)
-                userResponseRepository.delete(existingResponse.get());
-                return existingResponse.get();
-            } else {
-                // Add a new response
-                UserResponse response = UserResponse.builder()
-                        .quizAttempt(attempt)
-                        .question(question)
-                        .selectedAnswer(selectedAnswer)
-                        .isCorrect(selectedAnswer.getIsCorrect())
-                        .responseTime(request.getResponseTime())
-                        .build();
-                return userResponseRepository.save(response);
+            if (!answer.getQuestion().getQuestionId().equals(question.getQuestionId())) {
+                throw new QuizAttemptException("Answer does not belong to this question");
             }
-        } else {
-            // For single choice questions
-            // Check if response already exists for this question and update it
-            Optional<UserResponse> existingResponse = userResponseRepository
-                    .findFirstByQuizAttemptAttemptIdAndQuestionQuestionId(attemptId, question.getQuestionId());
 
-            UserResponse response;
-            if (existingResponse.isPresent()) {
-                response = existingResponse.get();
-                response.setSelectedAnswer(selectedAnswer);
-                response.setIsCorrect(selectedAnswer.getIsCorrect());
-                response.setResponseTime(request.getResponseTime());
-            } else {
-                // Create new response
-                response = UserResponse.builder()
-                        .quizAttempt(attempt)
-                        .question(question)
-                        .selectedAnswer(selectedAnswer)
-                        .isCorrect(selectedAnswer.getIsCorrect())
-                        .responseTime(request.getResponseTime())
-                        .build();
-            }
-            return userResponseRepository.save(response);
+            UserResponse response = UserResponse.builder()
+                    .quizAttempt(attempt)
+                    .question(question)
+                    .selectedAnswer(answer)
+                    .responseTime(request.getResponseTime())
+                    .isCorrect(answer.getIsCorrect())
+                    .build();
+
+            userResponseRepository.save(response);
         }
     }
 
@@ -482,6 +455,17 @@ public class QuizAttemptService {
                 })
                 .collect(Collectors.toList());
 
+        // Get all responses for this attempt
+        List<UserResponse> responses = userResponseRepository.findByQuizAttemptAttemptId(attempt.getAttemptId());
+
+        List<ResponseDto> responseDtos = responses.stream()
+                .map(r -> ResponseDto.builder()
+                        .questionId(r.getQuestion().getQuestionId())
+                        .answerId(r.getSelectedAnswer().getAnswerId())
+                        .isMultipleChoice(r.getQuestion().getType() == QuestionType.MULTIPLE_CHOICE)
+                        .build())
+                .toList();
+
         return AttemptResponseDto.builder()
                 .attemptId(attempt.getAttemptId())
                 .quizId(attempt.getQuiz().getQuizId())
@@ -492,6 +476,7 @@ public class QuizAttemptService {
                 .startedAt(attempt.getStartedAt())
                 .completedAt(attempt.getCompletedAt())
                 .questions(questionDtos)
+                .responses(responseDtos)
                 .build();
     }
 

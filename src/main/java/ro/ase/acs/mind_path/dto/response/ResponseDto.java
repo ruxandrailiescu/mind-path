@@ -1,19 +1,16 @@
-package ro.ase.acs.mind_path.dto.request;
+package ro.ase.acs.mind_path.dto.response;
 
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
-import java.util.List;
-
 @Data
 @Builder
 @AllArgsConstructor
 @NoArgsConstructor
-public class SubmitAnswerRequest {
+public class ResponseDto {
     private Long questionId;
-    private List<Long> selectedAnswerIds;
-    private Integer responseTime;
+    private Long answerId;
     private Boolean isMultipleChoice;
 }

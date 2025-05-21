@@ -31,7 +31,7 @@ public class QuizSessionController {
                 .accessCode(session.getAccessCode())
                 .createdBy(session.getCreatedBy().getUserId())
                 .status(session.getStatus())
-                .createdAt(session.getCreatedAt().toString())
+                .createdAt(session.getStartTime().toString())
                 .expiresAt(session.getEndTime().toString())
                 .build();
         return ResponseEntity.ok(responseDto);

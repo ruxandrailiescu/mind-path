@@ -6,8 +6,6 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 import ro.ase.acs.mind_path.entity.enums.SessionStatus;
 
-import java.time.LocalDateTime;
-
 @Data
 @Builder
 @AllArgsConstructor

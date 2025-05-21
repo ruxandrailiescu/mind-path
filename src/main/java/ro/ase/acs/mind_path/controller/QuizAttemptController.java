@@ -1,6 +1,8 @@
 package ro.ase.acs.mind_path.controller;
 
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
@@ -11,7 +13,6 @@ import ro.ase.acs.mind_path.dto.request.SubmitAttemptRequest;
 import ro.ase.acs.mind_path.dto.response.AttemptResponseDto;
 import ro.ase.acs.mind_path.dto.response.AttemptResultDto;
 import ro.ase.acs.mind_path.entity.User;
-import ro.ase.acs.mind_path.entity.UserResponse;
 import ro.ase.acs.mind_path.service.QuizAttemptService;
 
 import java.util.List;
@@ -44,20 +45,20 @@ public class QuizAttemptController {
 
     @PostMapping("/attempts/{attemptId}/responses")
     @PreAuthorize("hasRole('STUDENT')")
-    public ResponseEntity<UserResponse> submitAnswer(
+    public ResponseEntity<Void> submitAnswer(
             @PathVariable Long attemptId,
             @RequestBody SubmitAnswerRequest request,
             Authentication authentication) {
         User user = (User) authentication.getPrincipal();
-        UserResponse response = quizAttemptService.submitAnswer(attemptId, user.getUserId(), request);
-        return ResponseEntity.ok(response);
+        quizAttemptService.submitAnswer(attemptId, user.getUserId(), request);
+        return ResponseEntity.status(HttpStatus.CREATED).build();
     }
 
     @PostMapping("/attempts/{attemptId}/submit")
     @PreAuthorize("hasRole('STUDENT')")
     public ResponseEntity<AttemptResponseDto> submitAttempt(
             @PathVariable Long attemptId,
-            @RequestBody SubmitAttemptRequest request,
+            @RequestBody @Valid SubmitAttemptRequest request,
             Authentication authentication) {
         User user = (User) authentication.getPrincipal();
         AttemptResponseDto response = quizAttemptService.submitAttempt(attemptId, user.getUserId(), request);

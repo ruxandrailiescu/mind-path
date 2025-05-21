@@ -23,4 +23,5 @@ public class AttemptResponseDto {
     private LocalDateTime startedAt;
     private LocalDateTime completedAt;
     private List<QuestionDto> questions;
+    private List<ResponseDto> responses;
 }
