@@ -176,12 +176,10 @@ public class QuizAttemptService {
         QuizAttempt attempt = quizAttemptRepository.findByAttemptIdAndUserUserId(attemptId, userId)
                 .orElseThrow(() -> new QuizAttemptException("Attempt not found or not accessible"));
 
-        // Check if the attempt is still valid
         if (!checkAndUpdateAttemptStatus(attempt)) {
             throw new QuizAttemptException("Quiz session has expired. This attempt is no longer valid.");
         }
 
-        // Check if attempt is still in progress
         if (attempt.getStatus() != AttemptStatus.IN_PROGRESS) {
             throw new QuizAttemptException("Attempt is no longer in progress");
         }
@@ -189,12 +187,10 @@ public class QuizAttemptService {
         Question question = questionRepository.findById(request.getQuestionId())
                 .orElseThrow(() -> new QuizAttemptException("Question not found"));
 
-        // Verify question belongs to the quiz
         if (!question.getQuiz().getQuizId().equals(attempt.getQuiz().getQuizId())) {
             throw new QuizAttemptException("Question does not belong to this quiz");
         }
 
-        // Check if this is a multiple choice question
         boolean isMultipleChoice = request.getIsMultipleChoice() != null &&
                 request.getIsMultipleChoice() &&
                 question.getType() == QuestionType.MULTIPLE_CHOICE;
@@ -231,40 +227,31 @@ public class QuizAttemptService {
     }
 
     public AttemptResultDto getAttemptResults(Long attemptId, Long userId) {
-        // Fetch the attempt
         QuizAttempt attempt = quizAttemptRepository.findByAttemptIdAndUserUserId(attemptId, userId)
                 .orElseThrow(() -> new QuizAttemptException("Attempt not found or not accessible"));
 
-        // Check if attempt is submitted or graded
         if (attempt.getStatus() != AttemptStatus.SUBMITTED && attempt.getStatus() != AttemptStatus.GRADED) {
             throw new QuizAttemptException("Attempt results are not available. The quiz must be submitted first.");
         }
 
-        // Update the status to GRADED if it's not already
         if (attempt.getStatus() != AttemptStatus.GRADED) {
             attempt.setStatus(AttemptStatus.GRADED);
             quizAttemptRepository.save(attempt);
         }
 
-        // Get all questions for this quiz
         List<Question> questions = questionRepository.findByQuizQuizId(attempt.getQuiz().getQuizId());
 
-        // Get all responses for this attempt
         List<UserResponse> responses = userResponseRepository.findByQuizAttemptAttemptId(attemptId);
 
         Map<Long, List<UserResponse>> responseMap = responses.stream()
                 .collect(Collectors.groupingBy(r -> r.getQuestion().getQuestionId()));
 
-        // Map questions to result DTOs
         List<QuestionResultDto> questionResults = questions.stream()
                 .map(question -> {
-                    // Get all possible answers for this question
                     List<Answer> answers = answerRepository.findByQuestionQuestionId(question.getQuestionId());
 
-                    // Get the user's responses for this question
                     List<UserResponse> userResponses = responseMap.getOrDefault(question.getQuestionId(), List.of());
 
-                    // Map answers to result DTOs
                     List<AnswerResultDto> answerResults = answers.stream()
                             .map(answer -> {
                                 boolean isSelected = userResponses.stream()
@@ -279,10 +266,8 @@ public class QuizAttemptService {
                             })
                             .collect(Collectors.toList());
 
-                    // For multiple choice questions
                     boolean isCorrect = false;
                     if (question.getType() == QuestionType.MULTIPLE_CHOICE) {
-                        // All selected answers must be correct, and all correct answers must be selected
                         List<Long> selectedAnswerIds = userResponses.stream()
                                 .map(r -> r.getSelectedAnswer().getAnswerId())
                                 .toList();
@@ -295,7 +280,6 @@ public class QuizAttemptService {
                         isCorrect = new HashSet<>(selectedAnswerIds).containsAll(correctAnswerIds) &&
                                 new HashSet<>(correctAnswerIds).containsAll(selectedAnswerIds);
                     } else {
-                        // For single choice, if the user selected an answer and it's correct
                         isCorrect = !userResponses.isEmpty() && userResponses.getFirst().getIsCorrect();
                     }
 
@@ -309,12 +293,10 @@ public class QuizAttemptService {
                 })
                 .collect(Collectors.toList());
 
-        // Count correct answers
         long correctAnswersCount = questionResults.stream()
                 .filter(QuestionResultDto::getIsCorrect)
                 .count();
 
-        // Build and return the result DTO
         return AttemptResultDto.builder()
                 .attemptId(attempt.getAttemptId())
                 .quizId(attempt.getQuiz().getQuizId())
@@ -333,48 +315,60 @@ public class QuizAttemptService {
         QuizAttempt attempt = quizAttemptRepository.findByAttemptIdAndUserUserId(attemptId, userId)
                 .orElseThrow(() -> new QuizAttemptException("Attempt not found or not accessible"));
 
-        // Check if the attempt is still valid
         if (!checkAndUpdateAttemptStatus(attempt)) {
             throw new QuizAttemptException("Quiz session has expired. This attempt is no longer valid.");
         }
 
-        // Check if attempt is still in progress
         if (attempt.getStatus() != AttemptStatus.IN_PROGRESS) {
             throw new QuizAttemptException("Attempt is no longer in progress");
         }
 
-        // Get all responses for this attempt
         List<UserResponse> responses = userResponseRepository.findByQuizAttemptAttemptId(attemptId);
 
-        // Get all questions for this quiz
         List<Question> questions = questionRepository.findByQuizQuizId(attempt.getQuiz().getQuizId());
 
-        // Calculate score
         float totalCorrect = 0;
+        float scoreMultipleChoiceQuestion = 0;
+        float numCorrect = 0;
+        float numIncorrect = 0;
+        float numCorrectSelected = 0;
+        float numIncorrectSelected = 0;
         for (Question question : questions) {
             List<UserResponse> questionResponses = responses.stream()
                     .filter(r -> r.getQuestion().getQuestionId().equals(question.getQuestionId()))
                     .toList();
 
             if (question.getType() == QuestionType.MULTIPLE_CHOICE) {
-                // Get all correct answers for this question
+                // For multiple-choice questions
+                numCorrectSelected = 0;
+                numIncorrectSelected = 0;
+
                 List<Long> correctAnswerIds = answerRepository.findByQuestionQuestionIdAndIsCorrect(
                         question.getQuestionId(), true).stream()
                         .map(Answer::getAnswerId)
                         .toList();
+                numCorrect = correctAnswerIds.size();
 
-                // Get user selected answers
+                numIncorrect = answerRepository.findByQuestionQuestionIdAndIsCorrect(
+                        question.getQuestionId(), false).stream().count();
+
                 List<Long> selectedAnswerIds = questionResponses.stream()
                         .map(r -> r.getSelectedAnswer().getAnswerId())
                         .toList();
 
-                // All selected answers must be correct, and all correct answers must be selected
-                if (new HashSet<>(selectedAnswerIds).containsAll(correctAnswerIds) &&
-                    new HashSet<>(correctAnswerIds).containsAll(selectedAnswerIds)) {
-                    totalCorrect++;
+                for (Long selectedAnswer : selectedAnswerIds) {
+                    if (correctAnswerIds.contains(selectedAnswer)) {
+                        numCorrectSelected++;
+                    } else {
+                        numIncorrectSelected++;
+                    }
                 }
+
+                scoreMultipleChoiceQuestion = (numCorrectSelected / numCorrect)
+                        - (numIncorrectSelected / (numCorrect + numIncorrect));
+                totalCorrect += scoreMultipleChoiceQuestion;
             } else {
-                // For single choice questions
+                // For single-choice questions
                 if (!questionResponses.isEmpty() && questionResponses.getFirst().getIsCorrect()) {
                     totalCorrect++;
                 }
@@ -383,7 +377,6 @@ public class QuizAttemptService {
 
         float score = (totalCorrect / questions.size()) * 100;
 
-        // Update attempt
         attempt.setStatus(AttemptStatus.SUBMITTED);
         attempt.setCompletedAt(LocalDateTime.now());
         attempt.setAttemptTime(request.getTotalTime());
