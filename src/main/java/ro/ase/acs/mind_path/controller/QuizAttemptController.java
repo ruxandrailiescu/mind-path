@@ -83,6 +83,14 @@ public class QuizAttemptController {
         return ResponseEntity.ok(attempts);
     }
 
+    @GetMapping("/attempts/completed")
+    @PreAuthorize("hasRole('STUDENT')")
+    public ResponseEntity<List<AttemptResultDto>> getCompletedAttempts(Authentication authentication) {
+        User user = (User) authentication.getPrincipal();
+        List<AttemptResultDto> attempts = quizAttemptService.getCompletedAttempts(user.getUserId());
+        return ResponseEntity.ok(attempts);
+    }
+
     @PostMapping("/attempts/{attemptId}/save-progress")
     @PreAuthorize("hasRole('STUDENT')")
     public ResponseEntity<AttemptResponseDto> saveProgress(

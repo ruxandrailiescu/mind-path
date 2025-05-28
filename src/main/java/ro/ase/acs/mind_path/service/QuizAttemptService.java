@@ -43,15 +43,12 @@ public class QuizAttemptService {
         Quiz quiz = quizRepository.findById(request.getQuizId())
                 .orElseThrow(() -> new QuizAttemptException("Quiz not found"));
 
-        // Check if quiz is active
         if (quiz.getStatus() != QuizStatus.ACTIVE) {
             throw new QuizAttemptException("Quiz is not active");
         }
 
         QuizSession session = null;
-        // Check for in-class restriction if access code is provided
         if (request.getAccessCode() != null && !request.getAccessCode().isEmpty()) {
-            // Use quizSessionService to validate the access code and check expiration
             session = quizSessionService.validateAccessCode(request.getAccessCode());
 
             if (session == null) {
@@ -66,24 +63,20 @@ public class QuizAttemptService {
                 throw new QuizAttemptException("Access code does not match this quiz");
             }
 
-            // Check if session is still valid (within time window)
             LocalDateTime now = LocalDateTime.now();
             if (now.isBefore(session.getStartTime())) {
                 throw new QuizAttemptException("Quiz session has not started yet");
             }
 
             if (now.isAfter(session.getEndTime())) {
-                // Update the session status if it's expired
                 session.setStatus(SessionStatus.EXPIRED);
                 quizSessionRepository.save(session);
                 throw new QuizAttemptException("Quiz session has expired");
             }
         }
 
-        // Check for existing attempts for this quiz by this user
         List<QuizAttempt> userAttempts = quizAttemptRepository.findByUserUserIdAndQuizQuizId(userId, quiz.getQuizId());
 
-        // First, check for any IN_PROGRESS attempts
         Optional<QuizAttempt> inProgressAttempt = userAttempts.stream()
                 .filter(a -> a.getStatus() == AttemptStatus.IN_PROGRESS)
                 .findFirst();
@@ -91,28 +84,22 @@ public class QuizAttemptService {
         if (inProgressAttempt.isPresent()) {
             QuizAttempt attempt = inProgressAttempt.get();
 
-            // If this attempt has a quiz session, check if the session is still valid
             if (attempt.getQuizSession() != null) {
                 LocalDateTime now = LocalDateTime.now();
 
-                // If the session has expired, mark the attempt as ABANDONED
                 if (attempt.getQuizSession().getStatus() == SessionStatus.EXPIRED ||
                         attempt.getQuizSession().getEndTime().isBefore(now)) {
                     attempt.setStatus(AttemptStatus.ABANDONED);
                     quizAttemptRepository.save(attempt);
 
-                    // Continue to create a new attempt since this one is abandoned
                 } else {
-                    // Session is still valid, return the existing attempt
                     return buildAttemptResponse(attempt);
                 }
             } else {
-                // No session associated, return the existing attempt
                 return buildAttemptResponse(attempt);
             }
         }
 
-        // Create new attempt
         QuizAttempt attempt = QuizAttempt.builder()
                 .user(user)
                 .quiz(quiz)
@@ -121,14 +108,12 @@ public class QuizAttemptService {
                 .startedAt(LocalDateTime.now())
                 .build();
 
-        // If using session-based restriction
         if (session != null) {
             attempt.setQuizSession(session);
         }
 
         QuizAttempt savedAttempt = quizAttemptRepository.save(attempt);
 
-        // Build the response DTO
         return buildAttemptResponse(savedAttempt);
     }
 
@@ -136,30 +121,19 @@ public class QuizAttemptService {
         QuizAttempt attempt = quizAttemptRepository.findByAttemptIdAndUserUserId(attemptId, userId)
                 .orElseThrow(() -> new QuizAttemptException("Attempt not found or not accessible"));
 
-        // Check if the attempt is still valid (if it has a session, make sure the session is still active)
         checkAndUpdateAttemptStatus(attempt);
 
         return buildAttemptResponse(attempt);
     }
 
-    /**
-     * Checks if an attempt is still valid based on its associated session status.
-     * Updates the attempt status if needed.
-     *
-     * @param attempt The quiz attempt to check
-     * @return true if the attempt is still valid, false otherwise
-     */
     private boolean checkAndUpdateAttemptStatus(QuizAttempt attempt) {
-        // Only check IN_PROGRESS attempts
         if (attempt.getStatus() != AttemptStatus.IN_PROGRESS) {
             return false;
         }
 
-        // If there's an associated session, check if it's still active
         if (attempt.getQuizSession() != null) {
             QuizSession session = attempt.getQuizSession();
 
-            // If the session has expired, update the attempt status
             LocalDateTime now = LocalDateTime.now();
             if (session.getStatus() != SessionStatus.ACTIVE || session.getEndTime().isBefore(now)) {
                 attempt.setStatus(AttemptStatus.ABANDONED);
@@ -266,7 +240,7 @@ public class QuizAttemptService {
                             })
                             .collect(Collectors.toList());
 
-                    boolean isCorrect = false;
+                    boolean isCorrect;
                     if (question.getType() == QuestionType.MULTIPLE_CHOICE) {
                         List<Long> selectedAnswerIds = userResponses.stream()
                                 .map(r -> r.getSelectedAnswer().getAnswerId())
@@ -339,7 +313,6 @@ public class QuizAttemptService {
                     .toList();
 
             if (question.getType() == QuestionType.MULTIPLE_CHOICE) {
-                // For multiple-choice questions
                 numCorrectSelected = 0;
                 numIncorrectSelected = 0;
 
@@ -366,9 +339,11 @@ public class QuizAttemptService {
 
                 scoreMultipleChoiceQuestion = (numCorrectSelected / numCorrect)
                         - (numIncorrectSelected / (numCorrect + numIncorrect));
+
+                scoreMultipleChoiceQuestion = Math.max(0, scoreMultipleChoiceQuestion);
+
                 totalCorrect += scoreMultipleChoiceQuestion;
             } else {
-                // For single-choice questions
                 if (!questionResponses.isEmpty() && questionResponses.getFirst().getIsCorrect()) {
                     totalCorrect++;
                 }
@@ -387,26 +362,18 @@ public class QuizAttemptService {
         return buildAttemptResponse(savedAttempt);
     }
 
-    /**
-     * Scheduled task to check for quiz attempts associated with expired sessions.
-     * Updates the status of any IN_PROGRESS attempt to ABANDONED if its session has expired.
-     * Runs every 5 minutes.
-     */
     @Scheduled(fixedRate = 300000) // Run every 5 minutes
     public void updateAbandonedAttempts() {
         LocalDateTime now = LocalDateTime.now();
 
-        // Get all IN_PROGRESS attempts
         List<QuizAttempt> inProgressAttempts = quizAttemptRepository.findByStatus(AttemptStatus.IN_PROGRESS);
 
         int updatedCount = 0;
 
         for (QuizAttempt attempt : inProgressAttempts) {
-            // Only check attempts with a session
             if (attempt.getQuizSession() != null) {
                 QuizSession session = attempt.getQuizSession();
 
-                // Check if the session has expired
                 if (session.getStatus() == SessionStatus.EXPIRED || session.getEndTime().isBefore(now)) {
                     attempt.setStatus(AttemptStatus.ABANDONED);
                     quizAttemptRepository.save(attempt);
@@ -421,16 +388,12 @@ public class QuizAttemptService {
     }
 
     private AttemptResponseDto buildAttemptResponse(QuizAttempt attempt) {
-        // Get questions for this quiz
         List<Question> questions = questionRepository.findByQuizQuizId(attempt.getQuiz().getQuizId());
 
-        // Map questions to DTOs
         List<QuestionDto> questionDtos = questions.stream()
                 .map(q -> {
-                    // Get answers for this question
                     List<Answer> answers = answerRepository.findByQuestionQuestionId(q.getQuestionId());
 
-                    // Map answers to DTOs (without showing which is correct)
                     List<AnswerDto> answerDtos = answers.stream()
                             .map(a -> AnswerDto.builder()
                                     .id(a.getAnswerId())
@@ -448,7 +411,6 @@ public class QuizAttemptService {
                 })
                 .collect(Collectors.toList());
 
-        // Get all responses for this attempt
         List<UserResponse> responses = userResponseRepository.findByQuizAttemptAttemptId(attempt.getAttemptId());
 
         List<ResponseDto> responseDtos = responses.stream()
@@ -473,21 +435,12 @@ public class QuizAttemptService {
                 .build();
     }
 
-    /**
-     * Get all in-progress attempts for a student
-     * This method returns attempts that are IN_PROGRESS and not associated with expired sessions
-     *
-     * @param userId the ID of the student
-     * @return a list of attempts that can be resumed
-     */
     public List<AttemptResponseDto> getInProgressAttempts(Long userId) {
-        // Get all in-progress attempts for this user
-        List<QuizAttempt> inProgressAttempts = quizAttemptRepository.findByUserUserIdAndStatus(userId, AttemptStatus.IN_PROGRESS);
+        List<QuizAttempt> inProgressAttempts = quizAttemptRepository.findByUserUserIdAndStatus(
+                userId, AttemptStatus.IN_PROGRESS);
         List<AttemptResponseDto> result = new ArrayList<>();
 
-        // Filter out attempts with expired sessions
         for (QuizAttempt attempt : inProgressAttempts) {
-            // Check if the attempt is still valid
             if (checkAndUpdateAttemptStatus(attempt)) {
                 result.add(buildAttemptResponse(attempt));
             }
@@ -496,29 +449,31 @@ public class QuizAttemptService {
         return result;
     }
 
-    /**
-     * Save the current progress of an attempt without submitting it
-     * This method simply updates the attempt's lastAccessedAt time
-     *
-     * @param attemptId the ID of the attempt to save
-     * @param userId the ID of the student
-     * @return the updated attempt
-     */
+    public List<AttemptResultDto> getCompletedAttempts(Long userId) {
+        List<QuizAttempt> pastAttempts = quizAttemptRepository.findByUserUserIdAndStatus(
+                userId, AttemptStatus.GRADED);
+        List<AttemptResultDto> results = new ArrayList<>();
+
+        for (QuizAttempt attempt : pastAttempts) {
+            AttemptResultDto resultDto = getAttemptResults(attempt.getAttemptId(), userId);
+            results.add(resultDto);
+        }
+
+        return results;
+    }
+
     public AttemptResponseDto saveProgress(Long attemptId, Long userId) {
         QuizAttempt attempt = quizAttemptRepository.findByAttemptIdAndUserUserId(attemptId, userId)
                 .orElseThrow(() -> new QuizAttemptException("Attempt not found or not accessible"));
 
-        // Check if the attempt is still valid
         if (!checkAndUpdateAttemptStatus(attempt)) {
             throw new QuizAttemptException("Quiz session has expired. This attempt is no longer valid.");
         }
 
-        // Check if attempt is still in progress
         if (attempt.getStatus() != AttemptStatus.IN_PROGRESS) {
             throw new QuizAttemptException("Attempt is no longer in progress");
         }
 
-        // Update the last accessed time
         attempt.setLastAccessedAt(LocalDateTime.now());
         QuizAttempt savedAttempt = quizAttemptRepository.save(attempt);
 
