@@ -16,4 +16,6 @@ public class SubmitAnswerRequest {
     private List<Long> selectedAnswerIds;
     private Integer responseTime;
     private Boolean isMultipleChoice;
+    private String textResponse;
+    private Boolean isOpenEnded;
 }

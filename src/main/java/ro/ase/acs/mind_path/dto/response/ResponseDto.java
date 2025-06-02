@@ -13,4 +13,6 @@ public class ResponseDto {
     private Long questionId;
     private Long answerId;
     private Boolean isMultipleChoice;
+    private String textResponse;
+    private Boolean isOpenEnded;
 }

@@ -165,11 +165,35 @@ public class QuizAttemptService {
             throw new QuizAttemptException("Question does not belong to this quiz");
         }
 
+        userResponseRepository.deleteByQuizAttemptAttemptIdAndQuestionQuestionId(attemptId, question.getQuestionId());
+
+        if (question.getType() == QuestionType.OPEN_ENDED) {
+            if (request.getTextResponse() == null || request.getTextResponse().trim().isEmpty()) {
+                throw new QuizAttemptException("Text response is required for open-ended questions");
+            }
+
+            Answer exampleAnswer = answerRepository.findByQuestionQuestionIdAndIsCorrect(
+                            question.getQuestionId(), true)
+                    .stream()
+                    .findFirst()
+                    .orElseThrow(() -> new QuizAttemptException("No example answer found for this question"));
+
+            UserResponse response = UserResponse.builder()
+                    .quizAttempt(attempt)
+                    .question(question)
+                    .selectedAnswer(exampleAnswer)  // Link to teacher's example
+                    .openEndedAnswer(request.getTextResponse())  // Store student's actual text
+                    .responseTime(request.getResponseTime())
+                    .isCorrect(false)  // Will be evaluated later by AI
+                    .build();
+
+            userResponseRepository.save(response);
+            return;
+        }
+
         boolean isMultipleChoice = request.getIsMultipleChoice() != null &&
                 request.getIsMultipleChoice() &&
                 question.getType() == QuestionType.MULTIPLE_CHOICE;
-
-        userResponseRepository.deleteByQuizAttemptAttemptIdAndQuestionQuestionId(attemptId, question.getQuestionId());
 
         List<Long> selectedAnswerIds = request.getSelectedAnswerIds();
         if (selectedAnswerIds == null || selectedAnswerIds.isEmpty()) {
@@ -223,47 +247,75 @@ public class QuizAttemptService {
         List<QuestionResultDto> questionResults = questions.stream()
                 .map(question -> {
                     List<Answer> answers = answerRepository.findByQuestionQuestionId(question.getQuestionId());
-
                     List<UserResponse> userResponses = responseMap.getOrDefault(question.getQuestionId(), List.of());
 
-                    List<AnswerResultDto> answerResults = answers.stream()
-                            .map(answer -> {
-                                boolean isSelected = userResponses.stream()
-                                        .anyMatch(r -> r.getSelectedAnswer().getAnswerId().equals(answer.getAnswerId()));
+                    if (question.getType() == QuestionType.OPEN_ENDED) {
+                        String studentResponse = userResponses.isEmpty() ? "" :
+                                (userResponses.getFirst().getOpenEndedAnswer() != null ?
+                                        userResponses.getFirst().getOpenEndedAnswer() : "");
 
-                                return AnswerResultDto.builder()
-                                        .id(answer.getAnswerId())
-                                        .text(answer.getAnswerText())
-                                        .isSelected(isSelected)
-                                        .isCorrect(answer.getIsCorrect())
-                                        .build();
-                            })
-                            .collect(Collectors.toList());
-
-                    boolean isCorrect;
-                    if (question.getType() == QuestionType.MULTIPLE_CHOICE) {
-                        List<Long> selectedAnswerIds = userResponses.stream()
-                                .map(r -> r.getSelectedAnswer().getAnswerId())
-                                .toList();
-
-                        List<Long> correctAnswerIds = answers.stream()
+                        String exampleResponse = answers.stream()
                                 .filter(Answer::getIsCorrect)
-                                .map(Answer::getAnswerId)
-                                .toList();
+                                .map(Answer::getAnswerText)
+                                .findFirst()
+                                .orElse("");
 
-                        isCorrect = new HashSet<>(selectedAnswerIds).containsAll(correctAnswerIds) &&
-                                new HashSet<>(correctAnswerIds).containsAll(selectedAnswerIds);
+                        List<AnswerResultDto> answerResults = List.of(
+                                AnswerResultDto.builder()
+                                        .id(0L)  // Special ID for text response
+                                        .text(studentResponse)
+                                        .isSelected(true)
+                                        .isCorrect(false)  // Will be determined by AI later
+                                        .build()
+                        );
+
+                        return QuestionResultDto.builder()
+                                .id(question.getQuestionId())
+                                .text(question.getQuestionText())
+                                .type(question.getType().toString())
+                                .isCorrect(false)  // Pending AI evaluation
+                                .answers(answerResults)
+                                .build();
                     } else {
-                        isCorrect = !userResponses.isEmpty() && userResponses.getFirst().getIsCorrect();
-                    }
+                        List<AnswerResultDto> answerResults = answers.stream()
+                                .map(answer -> {
+                                    boolean isSelected = userResponses.stream()
+                                            .anyMatch(r -> r.getSelectedAnswer().getAnswerId().equals(answer.getAnswerId()));
 
-                    return QuestionResultDto.builder()
-                            .id(question.getQuestionId())
-                            .text(question.getQuestionText())
-                            .type(question.getType().toString())
-                            .isCorrect(isCorrect)
-                            .answers(answerResults)
-                            .build();
+                                    return AnswerResultDto.builder()
+                                            .id(answer.getAnswerId())
+                                            .text(answer.getAnswerText())
+                                            .isSelected(isSelected)
+                                            .isCorrect(answer.getIsCorrect())
+                                            .build();
+                                })
+                                .collect(Collectors.toList());
+
+                        boolean isCorrect;
+                        if (question.getType() == QuestionType.MULTIPLE_CHOICE) {
+                            List<Long> selectedAnswerIds = userResponses.stream()
+                                    .map(r -> r.getSelectedAnswer().getAnswerId())
+                                    .toList();
+
+                            List<Long> correctAnswerIds = answers.stream()
+                                    .filter(Answer::getIsCorrect)
+                                    .map(Answer::getAnswerId)
+                                    .toList();
+
+                            isCorrect = new HashSet<>(selectedAnswerIds).containsAll(correctAnswerIds) &&
+                                    new HashSet<>(correctAnswerIds).containsAll(selectedAnswerIds);
+                        } else {
+                            isCorrect = !userResponses.isEmpty() && userResponses.getFirst().getIsCorrect();
+                        }
+
+                        return QuestionResultDto.builder()
+                                .id(question.getQuestionId())
+                                .text(question.getQuestionText())
+                                .type(question.getType().toString())
+                                .isCorrect(isCorrect)
+                                .answers(answerResults)
+                                .build();
+                    }
                 })
                 .collect(Collectors.toList());
 
@@ -307,12 +359,23 @@ public class QuizAttemptService {
         float numIncorrect = 0;
         float numCorrectSelected = 0;
         float numIncorrectSelected = 0;
+
         for (Question question : questions) {
             List<UserResponse> questionResponses = responses.stream()
                     .filter(r -> r.getQuestion().getQuestionId().equals(question.getQuestionId()))
                     .toList();
 
-            if (question.getType() == QuestionType.MULTIPLE_CHOICE) {
+            if (question.getType() == QuestionType.OPEN_ENDED) {
+                // Will be evaluated by AI
+                if (!questionResponses.isEmpty() &&
+                        questionResponses.getFirst().getOpenEndedAnswer() != null &&
+                        !questionResponses.getFirst().getOpenEndedAnswer().trim().isEmpty()) {
+
+                    logger.info("Open-ended response received for question {} in attempt {}",
+                            question.getQuestionId(), attemptId);
+                }
+
+            } else if (question.getType() == QuestionType.MULTIPLE_CHOICE) {
                 numCorrectSelected = 0;
                 numIncorrectSelected = 0;
 
@@ -343,6 +406,7 @@ public class QuizAttemptService {
                 scoreMultipleChoiceQuestion = Math.max(0, scoreMultipleChoiceQuestion);
 
                 totalCorrect += scoreMultipleChoiceQuestion;
+
             } else {
                 if (!questionResponses.isEmpty() && questionResponses.getFirst().getIsCorrect()) {
                     totalCorrect++;
@@ -394,12 +458,17 @@ public class QuizAttemptService {
                 .map(q -> {
                     List<Answer> answers = answerRepository.findByQuestionQuestionId(q.getQuestionId());
 
-                    List<AnswerDto> answerDtos = answers.stream()
-                            .map(a -> AnswerDto.builder()
-                                    .id(a.getAnswerId())
-                                    .text(a.getAnswerText())
-                                    .build())
-                            .collect(Collectors.toList());
+                    List<AnswerDto> answerDtos;
+                    if (q.getType() == QuestionType.OPEN_ENDED) {
+                        answerDtos = new ArrayList<>();
+                    } else {
+                        answerDtos = answers.stream()
+                                .map(a -> AnswerDto.builder()
+                                        .id(a.getAnswerId())
+                                        .text(a.getAnswerText())
+                                        .build())
+                                .collect(Collectors.toList());
+                    }
 
                     return QuestionDto.builder()
                             .id(q.getQuestionId())
@@ -416,8 +485,10 @@ public class QuizAttemptService {
         List<ResponseDto> responseDtos = responses.stream()
                 .map(r -> ResponseDto.builder()
                         .questionId(r.getQuestion().getQuestionId())
-                        .answerId(r.getSelectedAnswer().getAnswerId())
+                        .answerId(r.getSelectedAnswer() != null ? r.getSelectedAnswer().getAnswerId() : null)
+                        .textResponse(r.getOpenEndedAnswer())
                         .isMultipleChoice(r.getQuestion().getType() == QuestionType.MULTIPLE_CHOICE)
+                        .isOpenEnded(r.getQuestion().getType() == QuestionType.OPEN_ENDED)
                         .build())
                 .toList();
 

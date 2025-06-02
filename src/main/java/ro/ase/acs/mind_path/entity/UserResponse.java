@@ -23,6 +23,8 @@ public class UserResponse {
     @ManyToOne
     @JoinColumn(name = "selected_answer")
     private Answer selectedAnswer;
+    @Column(name = "open_ended_answer", columnDefinition = "TEXT")
+    private String openEndedAnswer;
     @Column(name = "is_correct", nullable = false)
     private Boolean isCorrect;
     @Column(name = "response_time")
