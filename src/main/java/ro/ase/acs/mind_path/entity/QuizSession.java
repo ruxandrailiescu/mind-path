@@ -5,7 +5,6 @@ import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
-import org.hibernate.annotations.CreationTimestamp;
 import ro.ase.acs.mind_path.entity.enums.SessionStatus;
 
 import java.time.LocalDateTime;
@@ -37,13 +36,7 @@ public class QuizSession {
     @Column(nullable = false)
     @Enumerated(EnumType.STRING)
     private SessionStatus status;
-//    @Column(nullable = false, name = "created_at", updatable = false)
-//    @CreationTimestamp
-//    private LocalDateTime createdAt;
 
-    /**
-     * Automatically generates a unique access code when a session is created.
-     */
     @PrePersist
     public void prePersist() {
         if (accessCode == null || accessCode.isEmpty()) {
@@ -51,15 +44,10 @@ public class QuizSession {
         }
     }
 
-    /**
-     * Checks if the session is expired when loaded from database and updates status if needed.
-     * Note: This doesn't save the entity, so the status change won't be persisted unless the entity is saved.
-     */
     @PostLoad
     public void checkExpiration() {
         if (status == SessionStatus.ACTIVE && endTime.isBefore(LocalDateTime.now())) {
             status = SessionStatus.EXPIRED;
-            // The actual save operation needs to happen in the service layer
         }
     }
 }

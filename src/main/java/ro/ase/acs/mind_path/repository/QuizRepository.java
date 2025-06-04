@@ -11,6 +11,5 @@ import java.util.List;
 @Repository
 public interface QuizRepository extends JpaRepository<Quiz, Long> {
     boolean existsByTitleIgnoreCase(String title);
-
     List<Quiz> findAllByStatus(QuizStatus quizStatus);
 }

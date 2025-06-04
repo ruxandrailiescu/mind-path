@@ -181,10 +181,10 @@ public class QuizAttemptService {
             UserResponse response = UserResponse.builder()
                     .quizAttempt(attempt)
                     .question(question)
-                    .selectedAnswer(exampleAnswer)  // Link to teacher's example
-                    .openEndedAnswer(request.getTextResponse())  // Store student's actual text
+                    .selectedAnswer(exampleAnswer)
+                    .openEndedAnswer(request.getTextResponse())
                     .responseTime(request.getResponseTime())
-                    .isCorrect(false)  // Will be evaluated later by AI
+                    .isCorrect(false)
                     .build();
 
             userResponseRepository.save(response);
@@ -254,18 +254,12 @@ public class QuizAttemptService {
                                 (userResponses.getFirst().getOpenEndedAnswer() != null ?
                                         userResponses.getFirst().getOpenEndedAnswer() : "");
 
-                        String exampleResponse = answers.stream()
-                                .filter(Answer::getIsCorrect)
-                                .map(Answer::getAnswerText)
-                                .findFirst()
-                                .orElse("");
-
                         List<AnswerResultDto> answerResults = List.of(
                                 AnswerResultDto.builder()
-                                        .id(0L)  // Special ID for text response
+                                        .id(0L)
                                         .text(studentResponse)
                                         .isSelected(true)
-                                        .isCorrect(false)  // Will be determined by AI later
+                                        .isCorrect(false)
                                         .build()
                         );
 
@@ -273,7 +267,7 @@ public class QuizAttemptService {
                                 .id(question.getQuestionId())
                                 .text(question.getQuestionText())
                                 .type(question.getType().toString())
-                                .isCorrect(false)  // Pending AI evaluation
+                                .isCorrect(false)
                                 .answers(answerResults)
                                 .build();
                     } else {
@@ -354,11 +348,11 @@ public class QuizAttemptService {
         List<Question> questions = questionRepository.findByQuizQuizId(attempt.getQuiz().getQuizId());
 
         float totalCorrect = 0;
-        float scoreMultipleChoiceQuestion = 0;
-        float numCorrect = 0;
-        float numIncorrect = 0;
-        float numCorrectSelected = 0;
-        float numIncorrectSelected = 0;
+        float scoreMultipleChoiceQuestion;
+        float numCorrect;
+        float numIncorrect;
+        float numCorrectSelected;
+        float numIncorrectSelected;
 
         for (Question question : questions) {
             List<UserResponse> questionResponses = responses.stream()
@@ -366,7 +360,6 @@ public class QuizAttemptService {
                     .toList();
 
             if (question.getType() == QuestionType.OPEN_ENDED) {
-                // Will be evaluated by AI
                 if (!questionResponses.isEmpty() &&
                         questionResponses.getFirst().getOpenEndedAnswer() != null &&
                         !questionResponses.getFirst().getOpenEndedAnswer().trim().isEmpty()) {
@@ -426,7 +419,7 @@ public class QuizAttemptService {
         return buildAttemptResponse(savedAttempt);
     }
 
-    @Scheduled(fixedRate = 300000) // Run every 5 minutes
+    @Scheduled(fixedRate = 300000)
     public void updateAbandonedAttempts() {
         LocalDateTime now = LocalDateTime.now();
 
