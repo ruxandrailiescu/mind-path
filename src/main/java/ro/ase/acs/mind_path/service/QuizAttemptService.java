@@ -36,6 +36,49 @@ public class QuizAttemptService {
     private final QuizSessionRepository quizSessionRepository;
     private final QuizSessionService quizSessionService;
 
+    public List<StudentProgressDto> getStudentProgress(Long teacherId) {
+        List<Quiz> teacherQuizzes = quizRepository.findByCreatedByUserId(teacherId);
+        if (teacherQuizzes.isEmpty()) {
+            return new ArrayList<>();
+        }
+        List<Long> quizIds = teacherQuizzes.stream()
+                .map(Quiz::getQuizId)
+                .toList();
+        List<QuizAttempt> completedAttempts = quizAttemptRepository.findByQuizQuizIdIn(quizIds)
+                .stream()
+                .filter(attempt -> attempt.getStatus() == AttemptStatus.SUBMITTED ||
+                        attempt.getStatus() == AttemptStatus.GRADED ||
+                        attempt.getStatus() == AttemptStatus.ABANDONED)
+                .toList();
+        Map<Long, List<QuizAttempt>> attemptsByStudent = completedAttempts.stream()
+                .collect(Collectors.groupingBy(attempt -> attempt.getUser().getUserId()));
+        return attemptsByStudent.entrySet().stream()
+                .map(entry -> {
+                    Long studentId = entry.getKey();
+                    List<QuizAttempt> studentAttempts = entry.getValue();
+                    User student = studentAttempts.getFirst().getUser();
+                    double avgScore = studentAttempts.stream()
+                            .mapToDouble(QuizAttempt::getScore)
+                            .average()
+                            .orElse(0.0);
+                    LocalDateTime lastQuizDate = studentAttempts.stream()
+                            .map(QuizAttempt::getCompletedAt)
+                            .filter(Objects::nonNull)
+                            .max(LocalDateTime::compareTo)
+                            .orElse(null);
+                    return StudentProgressDto.builder()
+                            .studentId(studentId)
+                            .firstName(student.getFirstName())
+                            .lastName(student.getLastName())
+                            .quizzesTaken(studentAttempts.size())
+                            .avgScore(avgScore)
+                            .lastActive(lastQuizDate)
+                            .build();
+                })
+                .sorted(Comparator.comparing(StudentProgressDto::getLastName))
+                .toList();
+    }
+
     public TeacherDashboardStatsDto getDashboardStats(Long teacherId) {
         List<Quiz> teacherQuizzes = quizRepository.findByCreatedByUserId(teacherId);
         if (teacherQuizzes.isEmpty()) {

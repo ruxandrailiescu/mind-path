@@ -12,6 +12,7 @@ import ro.ase.acs.mind_path.dto.request.SubmitAnswerRequest;
 import ro.ase.acs.mind_path.dto.request.SubmitAttemptRequest;
 import ro.ase.acs.mind_path.dto.response.AttemptResponseDto;
 import ro.ase.acs.mind_path.dto.response.AttemptResultDto;
+import ro.ase.acs.mind_path.dto.response.StudentProgressDto;
 import ro.ase.acs.mind_path.dto.response.TeacherDashboardStatsDto;
 import ro.ase.acs.mind_path.entity.User;
 import ro.ase.acs.mind_path.service.QuizAttemptService;
@@ -23,6 +24,14 @@ import java.util.List;
 @RequestMapping
 public class QuizAttemptController {
     private final QuizAttemptService quizAttemptService;
+
+    @GetMapping("/teacher/dashboard/students")
+    @PreAuthorize("hasRole('TEACHER')")
+    public ResponseEntity<List<StudentProgressDto>> getStudentProgress(Authentication authentication) {
+        User teacher = (User) authentication.getPrincipal();
+        List<StudentProgressDto> studentProgress = quizAttemptService.getStudentProgress(teacher.getUserId());
+        return ResponseEntity.ok(studentProgress);
+    }
 
     @GetMapping("/teacher/dashboard/stats")
     @PreAuthorize("hasRole('TEACHER')")
