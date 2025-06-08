@@ -12,4 +12,5 @@ import java.util.List;
 public interface QuizRepository extends JpaRepository<Quiz, Long> {
     boolean existsByTitleIgnoreCase(String title);
     List<Quiz> findAllByStatus(QuizStatus quizStatus);
+    List<Quiz> findByCreatedByUserId(Long teacherId);
 }

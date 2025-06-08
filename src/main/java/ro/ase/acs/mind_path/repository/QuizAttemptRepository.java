@@ -2,7 +2,6 @@ package ro.ase.acs.mind_path.repository;
 
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
-import ro.ase.acs.mind_path.entity.Quiz;
 import ro.ase.acs.mind_path.entity.QuizAttempt;
 import ro.ase.acs.mind_path.entity.enums.AttemptStatus;
 
@@ -15,4 +14,5 @@ public interface QuizAttemptRepository extends JpaRepository<QuizAttempt, Long> 
     Optional<QuizAttempt> findByAttemptIdAndUserUserId(Long attemptId, Long userId);
     List<QuizAttempt> findByUserUserIdAndStatus(Long userId, AttemptStatus status);
     List<QuizAttempt> findByStatus(AttemptStatus status);
+    List<QuizAttempt> findByQuizQuizIdIn(List<Long> quizIds);
 }

@@ -36,6 +36,40 @@ public class QuizAttemptService {
     private final QuizSessionRepository quizSessionRepository;
     private final QuizSessionService quizSessionService;
 
+    public TeacherDashboardStatsDto getDashboardStats(Long teacherId) {
+        List<Quiz> teacherQuizzes = quizRepository.findByCreatedByUserId(teacherId);
+        if (teacherQuizzes.isEmpty()) {
+            return TeacherDashboardStatsDto.builder()
+                    .activeStudentsCount(0)
+                    .completionRate(0.0)
+                    .build();
+        }
+        List<Long> quizIds = teacherQuizzes.stream()
+                .map(Quiz::getQuizId)
+                .toList();
+        List<QuizAttempt> allAttempts = quizAttemptRepository.findByQuizQuizIdIn(quizIds);
+        if (allAttempts.isEmpty()) {
+            return TeacherDashboardStatsDto.builder()
+                    .activeStudentsCount(0)
+                    .completionRate(0.0)
+                    .build();
+        }
+        int activeStudentsCount = (int) allAttempts.stream()
+                .map(attempt -> attempt.getUser().getUserId())
+                .distinct()
+                .count();
+        int totalAttempts = allAttempts.size();
+        int completedAttempts = (int) allAttempts.stream()
+                .filter(attempt -> attempt.getStatus() == AttemptStatus.SUBMITTED ||
+                        attempt.getStatus() == AttemptStatus.GRADED)
+                .count();
+        double completionRate = completedAttempts * 100.0 / totalAttempts;
+        return TeacherDashboardStatsDto.builder()
+                .activeStudentsCount(activeStudentsCount)
+                .completionRate(completionRate)
+                .build();
+    }
+
     public AttemptResponseDto startAttempt(Long userId, StartAttemptRequest request) {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new QuizAttemptException("User not found"));
