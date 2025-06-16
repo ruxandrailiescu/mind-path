@@ -25,22 +25,6 @@ import java.util.List;
 public class QuizAttemptController {
     private final QuizAttemptService quizAttemptService;
 
-    @GetMapping("/teacher/dashboard/students")
-    @PreAuthorize("hasRole('TEACHER')")
-    public ResponseEntity<List<StudentProgressDto>> getStudentProgress(Authentication authentication) {
-        User teacher = (User) authentication.getPrincipal();
-        List<StudentProgressDto> studentProgress = quizAttemptService.getStudentProgress(teacher.getUserId());
-        return ResponseEntity.ok(studentProgress);
-    }
-
-    @GetMapping("/teacher/dashboard/stats")
-    @PreAuthorize("hasRole('TEACHER')")
-    public ResponseEntity<TeacherDashboardStatsDto> getDashboardStats(Authentication authentication) {
-        User teacher = (User) authentication.getPrincipal();
-        TeacherDashboardStatsDto stats = quizAttemptService.getDashboardStats(teacher.getUserId());
-        return ResponseEntity.ok(stats);
-    }
-
     @PostMapping("/quizzes/attempts")
     @PreAuthorize("hasRole('STUDENT')")
     public ResponseEntity<AttemptResponseDto> startAttempt(
