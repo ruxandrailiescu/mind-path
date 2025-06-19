@@ -4,6 +4,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import ro.ase.acs.mind_path.dto.mapper.AttemptMapper;
 import ro.ase.acs.mind_path.dto.request.StartAttemptRequest;
 import ro.ase.acs.mind_path.dto.request.SubmitAnswerRequest;
 import ro.ase.acs.mind_path.dto.request.SubmitAttemptRequest;
@@ -25,6 +26,7 @@ import org.slf4j.LoggerFactory;
 @Service
 @RequiredArgsConstructor
 public class QuizAttemptService {
+
     private static final Logger logger = LoggerFactory.getLogger(QuizAttemptService.class);
 
     private final QuizRepository quizRepository;
@@ -35,6 +37,7 @@ public class QuizAttemptService {
     private final UserResponseRepository userResponseRepository;
     private final QuizSessionRepository quizSessionRepository;
     private final QuizSessionService quizSessionService;
+    private final AttemptMapper attemptMapper;
 
     public AttemptResponseDto startAttempt(Long userId, StartAttemptRequest request) {
         User user = userRepository.findById(userId)
@@ -446,57 +449,9 @@ public class QuizAttemptService {
 
     private AttemptResponseDto buildAttemptResponse(QuizAttempt attempt) {
         List<Question> questions = questionRepository.findByQuizQuizId(attempt.getQuiz().getQuizId());
-
-        List<QuestionDto> questionDtos = questions.stream()
-                .map(q -> {
-                    List<Answer> answers = answerRepository.findByQuestionQuestionId(q.getQuestionId());
-
-                    List<AnswerDto> answerDtos;
-                    if (q.getType() == QuestionType.OPEN_ENDED) {
-                        answerDtos = new ArrayList<>();
-                    } else {
-                        answerDtos = answers.stream()
-                                .map(a -> AnswerDto.builder()
-                                        .id(a.getAnswerId())
-                                        .text(a.getAnswerText())
-                                        .build())
-                                .collect(Collectors.toList());
-                    }
-
-                    return QuestionDto.builder()
-                            .id(q.getQuestionId())
-                            .text(q.getQuestionText())
-                            .type(q.getType())
-                            .difficulty(q.getDifficulty())
-                            .answers(answerDtos)
-                            .build();
-                })
-                .collect(Collectors.toList());
-
         List<UserResponse> responses = userResponseRepository.findByQuizAttemptAttemptId(attempt.getAttemptId());
 
-        List<ResponseDto> responseDtos = responses.stream()
-                .map(r -> ResponseDto.builder()
-                        .questionId(r.getQuestion().getQuestionId())
-                        .answerId(r.getSelectedAnswer() != null ? r.getSelectedAnswer().getAnswerId() : null)
-                        .textResponse(r.getOpenEndedAnswer())
-                        .isMultipleChoice(r.getQuestion().getType() == QuestionType.MULTIPLE_CHOICE)
-                        .isOpenEnded(r.getQuestion().getType() == QuestionType.OPEN_ENDED)
-                        .build())
-                .toList();
-
-        return AttemptResponseDto.builder()
-                .attemptId(attempt.getAttemptId())
-                .quizId(attempt.getQuiz().getQuizId())
-                .quizTitle(attempt.getQuiz().getTitle())
-                .status(attempt.getStatus())
-                .score(attempt.getScore())
-                .attemptTime(attempt.getAttemptTime())
-                .startedAt(attempt.getStartedAt())
-                .completedAt(attempt.getCompletedAt())
-                .questions(questionDtos)
-                .responses(responseDtos)
-                .build();
+        return attemptMapper.toDto(attempt, questions, responses);
     }
 
     public List<AttemptResponseDto> getInProgressAttempts(Long userId) {

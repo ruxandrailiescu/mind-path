@@ -2,7 +2,7 @@ package ro.ase.acs.mind_path.service;
 
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
-import ro.ase.acs.mind_path.dto.mapper.QuestionMapper;
+import ro.ase.acs.mind_path.dto.mapper.QuestionSummaryMapper;
 import ro.ase.acs.mind_path.dto.request.AnswerCreationDto;
 import ro.ase.acs.mind_path.dto.response.AnswerSummaryDto;
 import ro.ase.acs.mind_path.entity.Answer;
@@ -22,7 +22,7 @@ import java.util.List;
 @RequiredArgsConstructor
 public class AnswerService {
 
-    private final QuestionMapper questionMapper;
+    private final QuestionSummaryMapper questionSummaryMapper;
     private final AnswerRepository answerRepository;
     private final QuestionRepository questionRepository;
 
@@ -60,7 +60,7 @@ public class AnswerService {
 
         return question.getAnswers()
                 .stream()
-                .map(questionMapper::toAnswerSummaryDto)
+                .map(questionSummaryMapper::toAnswerSummaryDto)
                 .toList();
     }
 
