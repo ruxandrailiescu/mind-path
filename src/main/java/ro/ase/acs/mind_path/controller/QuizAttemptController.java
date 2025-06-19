@@ -93,11 +93,11 @@ public class QuizAttemptController {
 
     @PostMapping("/attempts/{attemptId}/save-progress")
     @PreAuthorize("hasRole('STUDENT')")
-    public ResponseEntity<AttemptResponseDto> saveProgress(
+    public ResponseEntity<Void> saveProgress(
             @PathVariable Long attemptId,
             Authentication authentication) {
         User user = (User) authentication.getPrincipal();
-        AttemptResponseDto response = quizAttemptService.saveProgress(attemptId, user.getUserId());
-        return ResponseEntity.ok(response);
+        quizAttemptService.saveProgress(attemptId, user.getUserId());
+        return ResponseEntity.status(HttpStatus.CREATED).build();
     }
 }

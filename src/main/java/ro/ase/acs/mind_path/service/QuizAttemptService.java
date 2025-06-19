@@ -526,7 +526,7 @@ public class QuizAttemptService {
         return results;
     }
 
-    public AttemptResponseDto saveProgress(Long attemptId, Long userId) {
+    public void saveProgress(Long attemptId, Long userId) {
         QuizAttempt attempt = quizAttemptRepository.findByAttemptIdAndUserUserId(attemptId, userId)
                 .orElseThrow(() -> new QuizAttemptException("Attempt not found or not accessible"));
 
@@ -539,8 +539,6 @@ public class QuizAttemptService {
         }
 
         attempt.setLastAccessedAt(LocalDateTime.now());
-        QuizAttempt savedAttempt = quizAttemptRepository.save(attempt);
-
-        return buildAttemptResponse(savedAttempt);
+        quizAttemptRepository.save(attempt);
     }
 }
