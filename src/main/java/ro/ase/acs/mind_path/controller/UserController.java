@@ -47,7 +47,6 @@ public class UserController {
     }
 
     @GetMapping("/users/me")
-    @PreAuthorize("isAuthenticated()")
     public ResponseEntity<UserProfileDto> getCurrentUser(@AuthenticationPrincipal UserDetails userDetails) {
         User user = userService.findByEmail(userDetails.getUsername());
         return ResponseEntity.ok(new UserProfileDto(user));

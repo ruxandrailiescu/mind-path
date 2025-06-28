@@ -38,6 +38,7 @@ public class QuizAttemptService {
     private final QuizSessionRepository quizSessionRepository;
     private final QuizSessionService quizSessionService;
     private final AttemptMapper attemptMapper;
+    private final GradingService gradingService;
 
     public AttemptResponseDto startAttempt(Long userId, StartAttemptRequest request) {
         User user = userRepository.findById(userId)
@@ -116,7 +117,6 @@ public class QuizAttemptService {
         }
 
         QuizAttempt savedAttempt = quizAttemptRepository.save(attempt);
-
         return buildAttemptResponse(savedAttempt);
     }
 
@@ -227,6 +227,7 @@ public class QuizAttemptService {
         }
     }
 
+    // REFACTOR
     public AttemptResultDto getAttemptResults(Long attemptId, Long userId) {
         QuizAttempt attempt = quizAttemptRepository.findByAttemptIdAndUserUserId(attemptId, userId)
                 .orElseThrow(() -> new QuizAttemptException("Attempt not found or not accessible"));
@@ -235,10 +236,8 @@ public class QuizAttemptService {
             throw new QuizAttemptException("Attempt results are not available. The quiz must be submitted first.");
         }
 
-        if (attempt.getStatus() != AttemptStatus.GRADED) {
-            attempt.setStatus(AttemptStatus.GRADED);
-            quizAttemptRepository.save(attempt);
-        }
+        attempt.setStatus(AttemptStatus.GRADED);
+        quizAttemptRepository.save(attempt);
 
         List<Question> questions = questionRepository.findByQuizQuizId(attempt.getQuiz().getQuizId());
 
@@ -347,70 +346,9 @@ public class QuizAttemptService {
         }
 
         List<UserResponse> responses = userResponseRepository.findByQuizAttemptAttemptId(attemptId);
-
         List<Question> questions = questionRepository.findByQuizQuizId(attempt.getQuiz().getQuizId());
 
-        float totalCorrect = 0;
-        float scoreMultipleChoiceQuestion;
-        float numCorrect;
-        float numIncorrect;
-        float numCorrectSelected;
-        float numIncorrectSelected;
-
-        for (Question question : questions) {
-            List<UserResponse> questionResponses = responses.stream()
-                    .filter(r -> r.getQuestion().getQuestionId().equals(question.getQuestionId()))
-                    .toList();
-
-            if (question.getType() == QuestionType.OPEN_ENDED) {
-                if (!questionResponses.isEmpty() &&
-                        questionResponses.getFirst().getOpenEndedAnswer() != null &&
-                        !questionResponses.getFirst().getOpenEndedAnswer().trim().isEmpty()) {
-
-                    logger.info("Open-ended response received for question {} in attempt {}",
-                            question.getQuestionId(), attemptId);
-                }
-
-            } else if (question.getType() == QuestionType.MULTIPLE_CHOICE) {
-                numCorrectSelected = 0;
-                numIncorrectSelected = 0;
-
-                List<Long> correctAnswerIds = answerRepository.findByQuestionQuestionIdAndIsCorrect(
-                        question.getQuestionId(), true).stream()
-                        .map(Answer::getAnswerId)
-                        .toList();
-                numCorrect = correctAnswerIds.size();
-
-                numIncorrect = answerRepository.findByQuestionQuestionIdAndIsCorrect(
-                        question.getQuestionId(), false).stream().count();
-
-                List<Long> selectedAnswerIds = questionResponses.stream()
-                        .map(r -> r.getSelectedAnswer().getAnswerId())
-                        .toList();
-
-                for (Long selectedAnswer : selectedAnswerIds) {
-                    if (correctAnswerIds.contains(selectedAnswer)) {
-                        numCorrectSelected++;
-                    } else {
-                        numIncorrectSelected++;
-                    }
-                }
-
-                scoreMultipleChoiceQuestion = (numCorrectSelected / numCorrect)
-                        - (numIncorrectSelected / (numCorrect + numIncorrect));
-
-                scoreMultipleChoiceQuestion = Math.max(0, scoreMultipleChoiceQuestion);
-
-                totalCorrect += scoreMultipleChoiceQuestion;
-
-            } else {
-                if (!questionResponses.isEmpty() && questionResponses.getFirst().getIsCorrect()) {
-                    totalCorrect++;
-                }
-            }
-        }
-
-        float score = (totalCorrect / questions.size()) * 100;
+        float score = gradingService.grade(attempt, questions, responses);
 
         attempt.setStatus(AttemptStatus.SUBMITTED);
         attempt.setCompletedAt(LocalDateTime.now());
