@@ -29,4 +29,8 @@ public class UserResponse {
     private Boolean isCorrect;
     @Column(name = "response_time")
     private Integer responseTime;
+    @Column(name = "teacher_correct")
+    private Boolean teacherCorrect;
+    @Column(name = "ai_score")
+    private Float aiScore;
 }

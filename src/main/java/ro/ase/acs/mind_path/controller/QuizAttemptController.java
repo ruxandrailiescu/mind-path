@@ -12,6 +12,7 @@ import ro.ase.acs.mind_path.dto.request.SubmitAnswerRequest;
 import ro.ase.acs.mind_path.dto.request.SubmitAttemptRequest;
 import ro.ase.acs.mind_path.dto.response.AttemptResponseDto;
 import ro.ase.acs.mind_path.dto.response.AttemptResultDto;
+import ro.ase.acs.mind_path.dto.response.SubmitAnswerResponse;
 import ro.ase.acs.mind_path.entity.User;
 import ro.ase.acs.mind_path.service.QuizAttemptService;
 
@@ -45,13 +46,13 @@ public class QuizAttemptController {
 
     @PostMapping("/attempts/{attemptId}/responses")
     @PreAuthorize("hasRole('STUDENT')")
-    public ResponseEntity<Void> submitAnswer(
+    public ResponseEntity<SubmitAnswerResponse> submitAnswer(
             @PathVariable Long attemptId,
             @RequestBody SubmitAnswerRequest request,
             Authentication authentication) {
         User user = (User) authentication.getPrincipal();
-        quizAttemptService.submitAnswer(attemptId, user.getUserId(), request);
-        return ResponseEntity.status(HttpStatus.CREATED).build();
+        SubmitAnswerResponse res = quizAttemptService.submitAnswer(attemptId, user.getUserId(), request);
+        return ResponseEntity.status(HttpStatus.CREATED).body(res);
     }
 
     @PostMapping("/attempts/{attemptId}/submit")

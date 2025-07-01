@@ -149,7 +149,7 @@ public class QuizAttemptService {
     }
 
     @Transactional
-    public void submitAnswer(Long attemptId, Long userId, SubmitAnswerRequest request) {
+    public SubmitAnswerResponse submitAnswer(Long attemptId, Long userId, SubmitAnswerRequest request) {
         QuizAttempt attempt = quizAttemptRepository.findByAttemptIdAndUserUserId(attemptId, userId)
                 .orElseThrow(() -> new QuizAttemptException("Attempt not found or not accessible"));
 
@@ -191,7 +191,7 @@ public class QuizAttemptService {
                     .build();
 
             userResponseRepository.save(response);
-            return;
+            return new SubmitAnswerResponse(false);
         }
 
         boolean isMultipleChoice = request.getIsMultipleChoice() != null &&
@@ -199,6 +199,12 @@ public class QuizAttemptService {
                 question.getType() == QuestionType.MULTIPLE_CHOICE;
 
         List<Long> selectedAnswerIds = request.getSelectedAnswerIds();
+        List<Long> correctAnswerIds = answerRepository
+                .findByQuestionQuestionIdAndIsCorrect(request.getQuestionId(), true)
+                .stream().map(Answer::getAnswerId).toList();
+        boolean isCorrect = new HashSet<>(selectedAnswerIds).equals(
+                new HashSet<>(correctAnswerIds));
+
         if (selectedAnswerIds == null || selectedAnswerIds.isEmpty()) {
             throw new QuizAttemptException("No answers submitted for this question");
         }
@@ -225,6 +231,8 @@ public class QuizAttemptService {
 
             userResponseRepository.save(response);
         }
+
+        return new SubmitAnswerResponse(isCorrect);
     }
 
     // REFACTOR
