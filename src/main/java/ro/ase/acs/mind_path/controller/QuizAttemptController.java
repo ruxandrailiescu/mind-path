@@ -67,12 +67,10 @@ public class QuizAttemptController {
     }
 
     @GetMapping("/attempts/{attemptId}/results")
-    @PreAuthorize("hasRole('STUDENT')")
+    @PreAuthorize("hasRole('STUDENT') or hasRole('TEACHER')")
     public ResponseEntity<AttemptResultDto> getAttemptResults(
-            @PathVariable Long attemptId,
-            Authentication authentication) {
-        User user = (User) authentication.getPrincipal();
-        AttemptResultDto results = quizAttemptService.getAttemptResults(attemptId, user.getUserId());
+            @PathVariable Long attemptId) {
+        AttemptResultDto results = quizAttemptService.getAttemptResults(attemptId);
         return ResponseEntity.ok(results);
     }
 

@@ -1,5 +1,6 @@
 package ro.ase.acs.mind_path.service;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
 import lombok.RequiredArgsConstructor;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
@@ -19,7 +20,6 @@ import ro.ase.acs.mind_path.repository.*;
 
 import java.time.LocalDateTime;
 import java.util.*;
-import java.util.stream.Collectors;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -39,6 +39,7 @@ public class QuizAttemptService {
     private final QuizSessionService quizSessionService;
     private final AttemptMapper attemptMapper;
     private final GradingService gradingService;
+    private final AiGradingJob aiGradingJob;
 
     public AttemptResponseDto startAttempt(Long userId, StartAttemptRequest request) {
         User user = userRepository.findById(userId)
@@ -235,9 +236,8 @@ public class QuizAttemptService {
         return new SubmitAnswerResponse(isCorrect);
     }
 
-    // REFACTOR
-    public AttemptResultDto getAttemptResults(Long attemptId, Long userId) {
-        QuizAttempt attempt = quizAttemptRepository.findByAttemptIdAndUserUserId(attemptId, userId)
+    public AttemptResultDto getAttemptResults(Long attemptId) {
+        QuizAttempt attempt = quizAttemptRepository.findById(attemptId)
                 .orElseThrow(() -> new QuizAttemptException("Attempt not found or not accessible"));
 
         if (attempt.getStatus() != AttemptStatus.SUBMITTED && attempt.getStatus() != AttemptStatus.GRADED) {
@@ -247,98 +247,7 @@ public class QuizAttemptService {
         attempt.setStatus(AttemptStatus.GRADED);
         quizAttemptRepository.save(attempt);
 
-        List<Question> questions = questionRepository.findByQuizQuizId(attempt.getQuiz().getQuizId());
-
-        List<UserResponse> responses = userResponseRepository.findByQuizAttemptAttemptId(attemptId);
-
-        Map<Long, List<UserResponse>> responseMap = responses.stream()
-                .collect(Collectors.groupingBy(r -> r.getQuestion().getQuestionId()));
-
-        List<QuestionResultDto> questionResults = questions.stream()
-                .map(question -> {
-                    List<Answer> answers = answerRepository.findByQuestionQuestionId(question.getQuestionId());
-                    List<UserResponse> userResponses = responseMap.getOrDefault(question.getQuestionId(), List.of());
-
-                    if (question.getType() == QuestionType.OPEN_ENDED) {
-                        String studentResponse = userResponses.isEmpty() ? "" :
-                                (userResponses.getFirst().getOpenEndedAnswer() != null ?
-                                        userResponses.getFirst().getOpenEndedAnswer() : "");
-
-                        List<AnswerResultDto> answerResults = List.of(
-                                AnswerResultDto.builder()
-                                        .id(0L)
-                                        .text(studentResponse)
-                                        .isSelected(true)
-                                        .isCorrect(false)
-                                        .build()
-                        );
-
-                        return QuestionResultDto.builder()
-                                .id(question.getQuestionId())
-                                .text(question.getQuestionText())
-                                .type(question.getType().toString())
-                                .isCorrect(false)
-                                .answers(answerResults)
-                                .build();
-                    } else {
-                        List<AnswerResultDto> answerResults = answers.stream()
-                                .map(answer -> {
-                                    boolean isSelected = userResponses.stream()
-                                            .anyMatch(r -> r.getSelectedAnswer().getAnswerId().equals(answer.getAnswerId()));
-
-                                    return AnswerResultDto.builder()
-                                            .id(answer.getAnswerId())
-                                            .text(answer.getAnswerText())
-                                            .isSelected(isSelected)
-                                            .isCorrect(answer.getIsCorrect())
-                                            .build();
-                                })
-                                .collect(Collectors.toList());
-
-                        boolean isCorrect;
-                        if (question.getType() == QuestionType.MULTIPLE_CHOICE) {
-                            List<Long> selectedAnswerIds = userResponses.stream()
-                                    .map(r -> r.getSelectedAnswer().getAnswerId())
-                                    .toList();
-
-                            List<Long> correctAnswerIds = answers.stream()
-                                    .filter(Answer::getIsCorrect)
-                                    .map(Answer::getAnswerId)
-                                    .toList();
-
-                            isCorrect = new HashSet<>(selectedAnswerIds).containsAll(correctAnswerIds) &&
-                                    new HashSet<>(correctAnswerIds).containsAll(selectedAnswerIds);
-                        } else {
-                            isCorrect = !userResponses.isEmpty() && userResponses.getFirst().getIsCorrect();
-                        }
-
-                        return QuestionResultDto.builder()
-                                .id(question.getQuestionId())
-                                .text(question.getQuestionText())
-                                .type(question.getType().toString())
-                                .isCorrect(isCorrect)
-                                .answers(answerResults)
-                                .build();
-                    }
-                })
-                .collect(Collectors.toList());
-
-        long correctAnswersCount = questionResults.stream()
-                .filter(QuestionResultDto::getIsCorrect)
-                .count();
-
-        return AttemptResultDto.builder()
-                .attemptId(attempt.getAttemptId())
-                .quizId(attempt.getQuiz().getQuizId())
-                .quizTitle(attempt.getQuiz().getTitle())
-                .score(attempt.getScore())
-                .attemptTime(attempt.getAttemptTime())
-                .startedAt(attempt.getStartedAt())
-                .completedAt(attempt.getCompletedAt())
-                .totalQuestions(questions.size())
-                .correctAnswers((int) correctAnswersCount)
-                .questions(questionResults)
-                .build();
+        return attemptMapper.toResultDto(attempt);
     }
 
     public AttemptResponseDto submitAttempt(Long attemptId, Long userId, SubmitAttemptRequest request) {
@@ -356,7 +265,7 @@ public class QuizAttemptService {
         List<UserResponse> responses = userResponseRepository.findByQuizAttemptAttemptId(attemptId);
         List<Question> questions = questionRepository.findByQuizQuizId(attempt.getQuiz().getQuizId());
 
-        float score = gradingService.grade(attempt, questions, responses);
+        float score = gradingService.grade(questions, responses);
 
         attempt.setStatus(AttemptStatus.SUBMITTED);
         attempt.setCompletedAt(LocalDateTime.now());
@@ -364,6 +273,11 @@ public class QuizAttemptService {
         attempt.setScore(score);
 
         QuizAttempt savedAttempt = quizAttemptRepository.save(attempt);
+        try {
+            aiGradingJob.gradeAttempt(savedAttempt.getAttemptId());
+        } catch (JsonProcessingException e) {
+            throw new QuizAttemptException("JSON could not be processed.");
+        }
 
         return buildAttemptResponse(savedAttempt);
     }
@@ -420,7 +334,7 @@ public class QuizAttemptService {
         List<AttemptResultDto> results = new ArrayList<>();
 
         for (QuizAttempt attempt : pastAttempts) {
-            AttemptResultDto resultDto = getAttemptResults(attempt.getAttemptId(), userId);
+            AttemptResultDto resultDto = getAttemptResults(attempt.getAttemptId());
             results.add(resultDto);
         }
 

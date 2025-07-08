@@ -16,5 +16,8 @@ public class QuestionResultDto {
     private String text;
     private String type;
     private Boolean isCorrect;
+    private Float aiScore;
+    private String aiFeedback;
+    private Float teacherScore;
     private List<AnswerResultDto> answers;
 }

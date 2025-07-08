@@ -46,6 +46,8 @@ public class QuizAttempt {
     @ManyToOne
     @JoinColumn(name = "session_id")
     private QuizSession quizSession;
+    @Column(name = "has_ungraded_open_ended")
+    private Boolean hasUngradedOpenEnded;
 
     @PrePersist
     public void prePersist() {

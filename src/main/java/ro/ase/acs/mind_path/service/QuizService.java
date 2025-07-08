@@ -118,6 +118,8 @@ public class QuizService {
             throw new ForbiddenException("Only the teacher that created the quiz can delete it");
         }
 
-        quizRepository.delete(quiz);
+//        quizRepository.delete(quiz);
+        quiz.setStatus(QuizStatus.ARCHIVED);
+        quizRepository.save(quiz);
     }
 }

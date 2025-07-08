@@ -2,8 +2,11 @@ package ro.ase.acs.mind_path.service;
 
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
+import ro.ase.acs.mind_path.dto.mapper.AttemptMapper;
+import ro.ase.acs.mind_path.dto.response.AttemptResultDto;
 import ro.ase.acs.mind_path.dto.response.StudentProgressDto;
 import ro.ase.acs.mind_path.dto.response.TeacherDashboardStatsDto;
+import ro.ase.acs.mind_path.entity.Question;
 import ro.ase.acs.mind_path.entity.Quiz;
 import ro.ase.acs.mind_path.entity.QuizAttempt;
 import ro.ase.acs.mind_path.entity.User;
@@ -20,7 +23,20 @@ import java.util.stream.Collectors;
 public class TeacherDashboardService {
     private final QuizRepository quizRepository;
     private final QuizAttemptRepository quizAttemptRepository;
+    private final AttemptMapper attemptMapper;
 
+    public List<AttemptResultDto> getStudentAttempts(Long teacherId, Long studentId) {
+        List<Long> teacherQuizIds = quizRepository.findByCreatedByUserId(teacherId)
+                .stream().map(Quiz::getQuizId).toList();
+
+        return quizAttemptRepository
+                .findByUserUserIdAndQuizQuizIdInAndStatusIn(
+                        studentId, teacherQuizIds,
+                        List.of(AttemptStatus.SUBMITTED, AttemptStatus.GRADED))
+                .stream()
+                .map(attemptMapper::toResultDto)
+                .toList();
+    }
 
     public List<StudentProgressDto> getStudentProgress(Long teacherId) {
         List<Quiz> teacherQuizzes = quizRepository.findByCreatedByUserId(teacherId);

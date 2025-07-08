@@ -4,12 +4,17 @@ import lombok.RequiredArgsConstructor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
+import org.springframework.transaction.annotation.Transactional;
 import ro.ase.acs.mind_path.entity.Answer;
 import ro.ase.acs.mind_path.entity.Question;
 import ro.ase.acs.mind_path.entity.QuizAttempt;
 import ro.ase.acs.mind_path.entity.UserResponse;
+import ro.ase.acs.mind_path.entity.enums.AttemptStatus;
 import ro.ase.acs.mind_path.entity.enums.QuestionType;
 import ro.ase.acs.mind_path.repository.AnswerRepository;
+import ro.ase.acs.mind_path.repository.QuestionRepository;
+import ro.ase.acs.mind_path.repository.QuizAttemptRepository;
+import ro.ase.acs.mind_path.repository.UserResponseRepository;
 
 import java.util.List;
 
@@ -17,12 +22,13 @@ import java.util.List;
 @RequiredArgsConstructor
 public class GradingService {
 
-    private static final Logger logger = LoggerFactory.getLogger(GradingService.class);
-
     private final AnswerRepository answerRepository;
+    private final QuestionRepository questionRepository;
+    private final UserResponseRepository userResponseRepository;
+    private final QuizAttemptRepository quizAttemptRepository;
 
     // REFACTOR
-    public float grade(QuizAttempt attempt, List<Question> questions, List<UserResponse> responses) {
+    public float grade(List<Question> questions, List<UserResponse> responses) {
         float totalCorrect = 0;
         float scoreMultipleChoiceQuestion;
         float numCorrect;
@@ -36,13 +42,14 @@ public class GradingService {
                     .toList();
 
             if (question.getType() == QuestionType.OPEN_ENDED) {
-                if (!questionResponses.isEmpty() &&
-                        questionResponses.getFirst().getOpenEndedAnswer() != null &&
-                        !questionResponses.getFirst().getOpenEndedAnswer().trim().isEmpty()) {
-
-                    logger.info("Open-ended response received for question {} in attempt {}",
-                            question.getQuestionId(), attempt.getAttemptId());
+                float s = 0f;
+                if (!questionResponses.isEmpty()) {
+                    Float finalScore = questionResponses.getFirst().getFinalScore();
+                    if (finalScore != null) {
+                        s = Math.max(0, Math.min(1, finalScore));
+                    }
                 }
+                totalCorrect += s;
 
             } else if (question.getType() == QuestionType.MULTIPLE_CHOICE) {
                 numCorrectSelected = 0;
@@ -80,4 +87,19 @@ public class GradingService {
         }
         return (totalCorrect / questions.size()) * 100;
     }
+
+    @Transactional
+    public void regradeAttempt(QuizAttempt attempt) {
+        List<Question> questions  = questionRepository.findByQuizQuizId(attempt.getQuiz().getQuizId());
+        List<UserResponse> responses = userResponseRepository.findByQuizAttemptAttemptId(attempt.getAttemptId());
+
+        float score = grade(questions, responses);
+        attempt.setScore(score);
+        attempt.setStatus(AttemptStatus.GRADED);
+        attempt.setHasUngradedOpenEnded(
+                responses.stream().anyMatch(r -> r.getQuestion().getType() == QuestionType.OPEN_ENDED
+                        && (r.getTeacherScore() == null || r.getAiScore() == null)));
+        quizAttemptRepository.save(attempt);
+    }
+
 }
