@@ -50,28 +50,26 @@ public class QuestionMapper implements DtoMapper<Question, QuestionDto> {
         List<UserResponse> userResponses = responseMap.getOrDefault(q.getQuestionId(), List.of());
 
         if (q.getType() == QuestionType.OPEN_ENDED) {
-            String studentResponse = userResponses.isEmpty() ? "" :
-                    (userResponses.getFirst().getOpenEndedAnswer() != null ?
-                            userResponses.getFirst().getOpenEndedAnswer() : "");
-
-            List<AnswerResultDto> answerResults = List.of(
-                    AnswerResultDto.builder()
-                            .id(0L)
-                            .text(studentResponse)
-                            .isSelected(true)
-                            .isCorrect(false)
-                            .build()
-            );
+            UserResponse ur = userResponses.isEmpty() ? null : userResponses.getFirst();
+            String studentResponse = ur != null && ur.getOpenEndedAnswer() != null
+                    ? ur.getOpenEndedAnswer()
+                    : "";
 
             return QuestionResultDto.builder()
                     .id(q.getQuestionId())
                     .text(q.getQuestionText())
                     .type(q.getType().toString())
                     .isCorrect(false)
-                    .aiScore(userResponses.getFirst().getAiScore())
-                    .aiFeedback(userResponses.getFirst().getAiFeedback())
-                    .teacherScore(userResponses.getFirst().getTeacherScore())
-                    .answers(answerResults)
+                    .aiScore(ur != null ? ur.getAiScore() : null)
+                    .aiFeedback(ur != null ? ur.getAiFeedback() : null)
+                    .teacherScore(ur != null ? ur.getTeacherScore() : null)
+                    .answers(List.of(
+                            AnswerResultDto.builder()
+                                    .id(0L)
+                                    .text(studentResponse)
+                                    .isSelected(true)
+                                    .isCorrect(false)
+                                    .build()))
                     .build();
         } else {
             List<AnswerResultDto> answerResults = answers.stream()

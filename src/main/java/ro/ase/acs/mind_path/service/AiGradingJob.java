@@ -28,6 +28,10 @@ public class AiGradingJob {
         List<UserResponse> openEnded = userResponseRepository
                 .findByQuizAttemptAttemptIdAndQuestionType(attemptId, QuestionType.OPEN_ENDED);
 
+        if (openEnded.isEmpty()) {
+            return;
+        }
+
         for (UserResponse ur : openEnded) {
             if (ur.getTeacherScore() != null || ur.getAiScore() != null) continue;
 
