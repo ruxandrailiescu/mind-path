@@ -273,12 +273,7 @@ public class QuizAttemptService {
         attempt.setScore(score);
 
         QuizAttempt savedAttempt = quizAttemptRepository.save(attempt);
-        try {
-            aiGradingJob.gradeAttempt(savedAttempt.getAttemptId());
-        } catch (JsonProcessingException e) {
-            throw new QuizAttemptException("JSON could not be processed.");
-        }
-
+        aiGradingJob.gradeAttempt(savedAttempt.getAttemptId());
         return buildAttemptResponse(savedAttempt);
     }
 
